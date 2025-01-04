@@ -1,9 +1,8 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap, error::Error, fs::File, io::BufReader, net::IpAddr, process::exit,
 };
-
-use once_cell::sync::Lazy;
 
 pub static CONFIG: Lazy<Config> = Lazy::new(|| match load() {
     Ok(c) => c,
