@@ -10,7 +10,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match config::load().await {
         Ok(config) => {
             let mut map = HashMap::new();
-            map.insert("PATH", config.container.path);
+            map.insert("SOURCE", config.container.source);
             map.insert("MOUNT", config.container.mount);
             map.insert("PASSWORD", config.container.password);
 

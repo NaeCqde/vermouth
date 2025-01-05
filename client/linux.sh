@@ -1,1 +1,1 @@
-echo $PASSWORD | veracrypt --filesystem=ntfs $PATH $MOUNT
+echo $PASSWORD | veracrypt -t $SOURCE $MOUNT

@@ -5,7 +5,7 @@ use std::error::Error;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Container {
-    pub path: String,
+    pub source: String,
     pub mount: String,
     pub password: String,
 }

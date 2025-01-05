@@ -14,7 +14,7 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| match load() {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Container {
-    pub path: String,
+    pub source: String,
     pub mount: String,
     pub password: String,
 }
