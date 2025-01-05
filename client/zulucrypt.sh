@@ -6,5 +6,5 @@ get_zulucrypt_device() {
     return 1
 }
 
-echo $PASSWORD | zuluCrypt-cli -o -d $PATH -t vcrypt
+echo $PASSWORD | zuluCrypt-cli -O -d $PATH -t vcrypt
 mount -t ntfs -o permissions,windows_names /dev/mappter/zuluCrypt-$(get_zulucrypt_device $PATH) $MOUNT
