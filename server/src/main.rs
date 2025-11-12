@@ -25,6 +25,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             .to(fetch_password),
                     )
                 })
+                .workers(1)
                 .bind((host, port))?
                 .run()
                 .await?)
@@ -40,6 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn fetch_password(req: HttpRequest) -> Response {
     let ip = req.peer_addr().expect("get client ip failure").ip();
 
+    println!("{}", ip.to_string());
     match CONFIG.containers.get(&ip) {
         Some(container) => Response::Ok().json(&container),
         None => Response::NotFound().body("{}"),
