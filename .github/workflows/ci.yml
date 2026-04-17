@@ -64,7 +64,7 @@ jobs:
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
-                  args: --locked --release --target ${{ matrix.platform.target }}
+                  args: --manifest-path ./client/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
@@ -119,7 +119,7 @@ jobs:
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
-                  args: --locked --release --target ${{ matrix.platform.target }}
+                  args: --manifest-path ./server/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
@@ -170,7 +170,7 @@ jobs:
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
-                  args: --locked --release --target ${{ matrix.platform.target }}
+                  args: --manifest-path ./nanokvm/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
