@@ -59,11 +59,10 @@ jobs:
                   target: ${{ matrix.platform.target }}
                   override: true
                   profile: minimal
-            - name: set crt-static on riscv64
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              run: export RUSTFLAGS="-Ctarget-feature=+crt-static"
             - name: Build with Cargo or Cross
               uses: actions-rs/cargo@v1
+              env:
+                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
@@ -119,6 +118,8 @@ jobs:
 
             - name: Build with Cargo or Cross
               uses: actions-rs/cargo@v1
+              env:
+                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
@@ -170,6 +171,8 @@ jobs:
 
             - name: Build with Cargo or Cross
               uses: actions-rs/cargo@v1
+              env:
+                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
