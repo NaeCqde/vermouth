@@ -26,7 +26,7 @@ jobs:
                       target: aarch64-unknown-linux-musl
                     - os-name: Linux-riscv64
                       runs-on: ubuntu-latest
-                      target: riscv64gc-unknown-linux-gnu
+                      target: riscv64gc-unknown-linux-musl
 
                     - os-name: Windows-x86_64
                       runs-on: windows-latest
