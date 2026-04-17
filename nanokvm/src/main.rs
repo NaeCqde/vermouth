@@ -16,11 +16,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     if config.manual {
+        log::info!("Manual Inputting...");
         if let Err(e) = input_password(&config).await {
             log::error!("{}", e);
             exit(1);
         };
     } else {
+        log::info!("Auto Input Mode");
         let mut old_power: bool = false;
 
         loop {
@@ -33,7 +35,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             };
 
             if !old_power && power {
-                sleep(Duration::from_secs(40)).await;
+                log::info!("Computer is power on");
+                log::info!("Waiting {}s...", config.wait_time);
+                sleep(Duration::from_secs(config.wait_time)).await;
+                log::info!("Waiting complete");
 
                 if let Err(e) = input_password(&config).await {
                     log::error!("{}", e);
@@ -49,7 +54,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn input_password(config: &config::Config) -> Result<(), Box<dyn Error>> {
+    log::info!("Loading password...");
     let container = config::load_container().await?;
+    log::info!("Loaded password");
+    log::info!("Pasting password...");
     let client = Client::default();
 
     let mut payload = HashMap::new();
@@ -60,6 +68,7 @@ async fn input_password(config: &config::Config) -> Result<(), Box<dyn Error>> {
         .json(&payload)
         .send()
         .await?;
+    log::info!("Pasted password");
 
     return Ok(());
 }
