@@ -27,7 +27,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         loop {
             let power: bool = match fs::read_to_string("/sys/class/gpio/gpio504/value").await {
-                Ok(text) => text == "0",
+                Ok(text) => {
+                    log::info!("Raw: {}", text);
+                    text == "0"
+                }
                 Err(e) => {
                     log::error!("{}", e);
                     exit(1);
