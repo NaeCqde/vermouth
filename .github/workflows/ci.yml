@@ -21,9 +21,11 @@ jobs:
                     - os-name: Linux-x86_64
                       runs-on: ubuntu-latest
                       target: x86_64-unknown-linux-musl
+                      use-cross: true
                     - os-name: Linux-aarch64
                       runs-on: ubuntu-latest
                       target: aarch64-unknown-linux-musl
+                      use-cross: true
                     - os-name: Linux-riscv64
                       runs-on: ubuntu-24.04-riscv
                       target: riscv64gc-unknown-linux-musl
@@ -32,22 +34,26 @@ jobs:
                     - os-name: Windows-x86_64
                       runs-on: windows-latest
                       target: x86_64-pc-windows-msvc
+                      use-cross: true
                     - os-name: Windows-aarch64
                       runs-on: windows-latest
                       target: aarch64-pc-windows-msvc
+                      use-cross: true
 
                     - os-name: macOS-x86_64
                       runs-on: macos-latest
                       target: x86_64-apple-darwin
+                      use-cross: true
                     - os-name: macOS-aarch64
                       runs-on: macos-latest
                       target: aarch64-apple-darwin
+                      use-cross: true
         runs-on: ${{ matrix.platform.runs-on }}
         steps:
             - name: Checkout
               uses: actions/checkout@v4
             - name: Build with Cross
-              if: matrix.platform.use-cross != false
+              if: matrix.platform.use-cross
               uses: houseabsolute/actions-rust-cross@v1
               env:
                   CRATE_NAME: vermouth
@@ -58,7 +64,7 @@ jobs:
                   args: "--locked --release"
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             - name: Install Rust toolchain
-              if: matrix.platform.use-cross == false
+              if: !matrix.platform.use-cross
               uses: actions-rs/toolchain@v1
               with:
                   toolchain: stable
@@ -68,7 +74,7 @@ jobs:
 
             # targetに応じてcargoもしくはcrossを使用してビルド
             - name: Build with Cargo
-              if: matrix.platform.use-cross == false
+              if: !matrix.platform.use-cross
               uses: actions-rs/cargo@v1
               with:
                   command: build
