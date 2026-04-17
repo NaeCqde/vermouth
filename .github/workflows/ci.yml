@@ -182,7 +182,6 @@ jobs:
                   executable-name: vermouth-nanokvm
                   target: ${{ matrix.platform.target }}
                   extra-files: |-
-                      script.sh
                       ./.env.example
                       ../README.md
                   _force-release-for-testing: true
@@ -206,7 +205,6 @@ jobs:
                   executable-name: vermouth-nanokvm
                   target: ${{ matrix.platform.target }}
                   extra-files: |-
-                      script.sh
                       ./.env.example
                       ../README.md
                   _force-release-for-testing: true

@@ -2,7 +2,8 @@
 case "$1" in
   start)
         echo "Start Vermouth Client for NanoKVM"
-        /data/vermouth-nanokvm
+        cd /data/vermouth
+        ./vermouth-nanokvm
         ;;
   stop)
         ;;

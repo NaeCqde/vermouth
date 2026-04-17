@@ -1,1 +1,2 @@
-MANUAL=true /data/vermouth-nanokvm
+cd /data/vermouth
+MANUAL=true ./vermouth-nanokvm
