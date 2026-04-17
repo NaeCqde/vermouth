@@ -68,7 +68,9 @@ jobs:
                   executable-name: vermouth
                   target: ${{ matrix.platform.target }}
                   extra-files: |-
-                      .env.example
+                      linux.sh
+                      windows.bat
+                      ./.env.example
                       ../README.md
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
@@ -91,7 +93,9 @@ jobs:
                   executable-name: vermouth
                   target: ${{ matrix.platform.target }}
                   extra-files: |-
-                      .env.example
+                      linux.sh
+                      windows.bat
+                      ./.env.example
                       ../README.md
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
@@ -147,6 +151,63 @@ jobs:
                   target: ${{ matrix.platform.target }}
                   extra-files: |-
                       example.config.json
+                      ../README.md
+                  _force-release-for-testing: true
+                  action-gh-release-parameters: |
+                      {
+                          "repository": "NaeCqde/vermouth",
+                          "token": "${{ secrets.GITHUB_TOKEN }}"
+                      }
+
+            - name: Build
+              uses: houseabsolute/actions-rust-cross@v1
+              env:
+                  CRATE_NAME: vermouth-nanokvm
+              with:
+                  working-directory: ./nanokvm
+                  command: build
+                  target: ${{ matrix.platform.target }}
+                  args: "--locked --release"
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Wait
+              shell: bash
+              run: sleep $((RANDOM % 20 + 3))
+            - name: Release
+              id: release-nanokvm-1
+              uses: houseabsolute/actions-rust-release@v0
+              env:
+                  CRATE_NAME: vermouth-nanokvm
+              with:
+                  working-directory: ./nanokvm
+                  executable-name: vermouth-nanokvm
+                  target: ${{ matrix.platform.target }}
+                  extra-files: |-
+                      script.sh
+                      ./.env.example
+                      ../README.md
+                  _force-release-for-testing: true
+                  action-gh-release-parameters: |
+                      {
+                          "repository": "NaeCqde/vermouth",
+                          "token": "${{ secrets.GITHUB_TOKEN }}"
+                      }
+            - name: Wait
+              if: failure()
+              shell: bash
+              run: sleep $((RANDOM % 20 + 5))
+            - name: Release
+              if: failure()
+              id: release-nanokvm-2
+              uses: houseabsolute/actions-rust-release@v0
+              env:
+                  CRATE_NAME: vermouth-nanokvm
+              with:
+                  working-directory: ./nanokvm
+                  executable-name: vermouth-nanokvm
+                  target: ${{ matrix.platform.target }}
+                  extra-files: |-
+                      script.sh
+                      ./.env.example
                       ../README.md
                   _force-release-for-testing: true
                   action-gh-release-parameters: |

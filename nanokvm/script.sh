@@ -1,0 +1,1 @@
+MANUAL=true vermouth-nanokvm
