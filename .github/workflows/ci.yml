@@ -60,6 +60,14 @@ jobs:
                   override: true
                   profile: minimal
             - name: Build with Cargo or Cross
+              if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
+              uses: actions-rs/cargo@v1
+              with:
+                  use-cross: ${{ matrix.platform.use-cross }}
+                  command: build
+                  args: --manifest-path ./nanokvm/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
+            - name: Build with Cargo or Cross
+              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               env:
                   RUSTFLAGS: "-Ctarget-feature=+crt-static"
@@ -170,6 +178,14 @@ jobs:
                       }
 
             - name: Build with Cargo or Cross
+              if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
+              uses: actions-rs/cargo@v1
+              with:
+                  use-cross: ${{ matrix.platform.use-cross }}
+                  command: build
+                  args: --manifest-path ./nanokvm/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
+            - name: Build with Cargo or Cross
+              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               env:
                   RUSTFLAGS: "-Ctarget-feature=+crt-static"
