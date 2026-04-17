@@ -60,6 +60,61 @@ jobs:
                   override: true
                   profile: minimal
             - name: Build with Cargo or Cross
+              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
+              uses: actions-rs/cargo@v1
+              env:
+                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
+              with:
+                  use-cross: ${{ matrix.platform.use-cross }}
+                  command: build
+                  args: --manifest-path ./nanokvm/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
+            - name: Wait
+              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
+              shell: bash
+              run: sleep $((RANDOM % 20 + 3))
+            - name: Release
+              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
+              id: release-nanokvm-1
+              uses: houseabsolute/actions-rust-release@v0
+              env:
+                  CRATE_NAME: vermouth-nanokvm
+              with:
+                  working-directory: ./nanokvm
+                  executable-name: vermouth-nanokvm
+                  target: ${{ matrix.platform.target }}
+                  extra-files: |-
+                      ./.env.example
+                      ../README.md
+                  _force-release-for-testing: true
+                  action-gh-release-parameters: |
+                      {
+                          "repository": "NaeCqde/vermouth",
+                          "token": "${{ secrets.GITHUB_TOKEN }}"
+                      }
+            - name: Wait
+              if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
+              shell: bash
+              run: sleep $((RANDOM % 20 + 5))
+            - name: Release
+              if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
+              id: release-nanokvm-2
+              uses: houseabsolute/actions-rust-release@v0
+              env:
+                  CRATE_NAME: vermouth-nanokvm
+              with:
+                  working-directory: ./nanokvm
+                  executable-name: vermouth-nanokvm
+                  target: ${{ matrix.platform.target }}
+                  extra-files: |-
+                      ./.env.example
+                      ../README.md
+                  _force-release-for-testing: true
+                  action-gh-release-parameters: |
+                      {
+                          "repository": "NaeCqde/vermouth",
+                          "token": "${{ secrets.GITHUB_TOKEN }}"
+                      }
+            - name: Build with Cargo or Cross
               if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               with:
@@ -125,6 +180,14 @@ jobs:
                       }
 
             - name: Build with Cargo or Cross
+              if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
+              uses: actions-rs/cargo@v1
+              with:
+                  use-cross: ${{ matrix.platform.use-cross }}
+                  command: build
+                  args: --manifest-path ./server/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
+            - name: Build with Cargo or Cross
+              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               env:
                   RUSTFLAGS: "-Ctarget-feature=+crt-static"
@@ -169,62 +232,6 @@ jobs:
                   target: ${{ matrix.platform.target }}
                   extra-files: |-
                       example.config.json
-                      ../README.md
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
-
-            - name: Build with Cargo or Cross
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              uses: actions-rs/cargo@v1
-              env:
-                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
-              with:
-                  use-cross: ${{ matrix.platform.use-cross }}
-                  command: build
-                  args: --manifest-path ./nanokvm/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Wait
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              shell: bash
-              run: sleep $((RANDOM % 20 + 3))
-            - name: Release
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              id: release-nanokvm-1
-              uses: houseabsolute/actions-rust-release@v0
-              env:
-                  CRATE_NAME: vermouth-nanokvm
-              with:
-                  working-directory: ./nanokvm
-                  executable-name: vermouth-nanokvm
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      ./.env.example
-                      ../README.md
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
-            - name: Wait
-              if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              shell: bash
-              run: sleep $((RANDOM % 20 + 5))
-            - name: Release
-              if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              id: release-nanokvm-2
-              uses: houseabsolute/actions-rust-release@v0
-              env:
-                  CRATE_NAME: vermouth-nanokvm
-              with:
-                  working-directory: ./nanokvm
-                  executable-name: vermouth-nanokvm
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      ./.env.example
                       ../README.md
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
