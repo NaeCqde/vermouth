@@ -52,31 +52,17 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
-            - name: Build with Cross
-              if: matrix.platform.use-cross
-              uses: houseabsolute/actions-rust-cross@v1
-              env:
-                  CRATE_NAME: vermouth
-              with:
-                  working-directory: ./client
-                  command: build
-                  target: ${{ matrix.platform.target }}
-                  args: "--locked --release"
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             - name: Install Rust toolchain
-              if: !matrix.platform.use-cross
               uses: actions-rs/toolchain@v1
               with:
                   toolchain: stable
                   target: ${{ matrix.platform.target }}
                   override: true
                   profile: minimal
-
-            # targetに応じてcargoもしくはcrossを使用してビルド
-            - name: Build with Cargo
-              if: !matrix.platform.use-cross
+            - name: Build with Cargo or Cross
               uses: actions-rs/cargo@v1
               with:
+                  use-cross: ${{ matrix.platform.use-cross }}
                   command: build
                   args: --locked --release --target ${{ matrix.platform.target }}
             - name: Wait
@@ -128,16 +114,12 @@ jobs:
                           "token": "${{ secrets.GITHUB_TOKEN }}"
                       }
 
-            - name: Build
-              uses: houseabsolute/actions-rust-cross@v1
-              env:
-                  CRATE_NAME: vermouth-server
+            - name: Build with Cargo or Cross
+              uses: actions-rs/cargo@v1
               with:
-                  working-directory: ./server
+                  use-cross: ${{ matrix.platform.use-cross }}
                   command: build
-                  target: ${{ matrix.platform.target }}
-                  args: "--locked --release"
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  args: --locked --release --target ${{ matrix.platform.target }}
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
@@ -183,16 +165,12 @@ jobs:
                           "token": "${{ secrets.GITHUB_TOKEN }}"
                       }
 
-            - name: Build
-              uses: houseabsolute/actions-rust-cross@v1
-              env:
-                  CRATE_NAME: vermouth-nanokvm
+            - name: Build with Cargo or Cross
+              uses: actions-rs/cargo@v1
               with:
-                  working-directory: ./nanokvm
+                  use-cross: ${{ matrix.platform.use-cross }}
                   command: build
-                  target: ${{ matrix.platform.target }}
-                  args: "--locked --release"
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  args: --locked --release --target ${{ matrix.platform.target }}
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
