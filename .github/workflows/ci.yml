@@ -50,16 +50,20 @@ jobs:
                       use-cross: true
         runs-on: ${{ matrix.platform.runs-on }}
         steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-            - name: Install Rust toolchain
-              uses: actions-rs/toolchain@v1
+            - uses: actions/checkout@v4
+            - uses: actions-rs/toolchain@v1
               with:
                   toolchain: stable
                   target: ${{ matrix.platform.target }}
                   override: true
                   profile: minimal
-            - name: Build with Cargo or Cross
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: |-
+                      ./client
+                      ./server
+                      ./nanokvm
+            - name: Build NanoKVM with Cargo or Cross
               if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               env:
@@ -72,7 +76,7 @@ jobs:
               if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
-            - name: Release
+            - name: Release NanoKVM 1
               if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               id: release-nanokvm-1
               uses: houseabsolute/actions-rust-release@v0
@@ -95,7 +99,7 @@ jobs:
               if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               shell: bash
               run: sleep $((RANDOM % 20 + 5))
-            - name: Release
+            - name: Release NanoKVM 2
               if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               id: release-nanokvm-2
               uses: houseabsolute/actions-rust-release@v0
@@ -114,14 +118,14 @@ jobs:
                           "repository": "NaeCqde/vermouth",
                           "token": "${{ secrets.GITHUB_TOKEN }}"
                       }
-            - name: Build with Cargo or Cross
+            - name: Build Client with Cargo or Cross
               if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
                   args: --manifest-path ./client/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Build with Cargo or Cross
+            - name: Build Client RISCV with Cargo or Cross
               if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               env:
@@ -133,7 +137,7 @@ jobs:
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
-            - name: Release
+            - name: Release Client 1
               id: release-client-1
               uses: houseabsolute/actions-rust-release@v0
               env:
@@ -157,7 +161,7 @@ jobs:
               if: failure()
               shell: bash
               run: sleep $((RANDOM % 20 + 5))
-            - name: Release
+            - name: Release Client 2
               if: failure()
               id: release-client-2
               uses: houseabsolute/actions-rust-release@v0
@@ -179,14 +183,14 @@ jobs:
                           "token": "${{ secrets.GITHUB_TOKEN }}"
                       }
 
-            - name: Build with Cargo or Cross
+            - name: Build Server with Cargo or Cross
               if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               with:
                   use-cross: ${{ matrix.platform.use-cross }}
                   command: build
                   args: --manifest-path ./server/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Build with Cargo or Cross
+            - name: Build Server RISCV with Cargo or Cross
               if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
               env:
@@ -198,7 +202,7 @@ jobs:
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
-            - name: Release
+            - name: Release Server 1
               id: release-server-1
               uses: houseabsolute/actions-rust-release@v0
               env:
@@ -220,7 +224,7 @@ jobs:
               if: failure()
               shell: bash
               run: sleep $((RANDOM % 20 + 5))
-            - name: Release
+            - name: Release Server 2
               if: failure()
               id: release-server-2
               uses: houseabsolute/actions-rust-release@v0
