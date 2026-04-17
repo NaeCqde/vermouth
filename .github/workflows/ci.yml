@@ -28,6 +28,8 @@ jobs:
                       runs-on: ubuntu-24.04-riscv
                       target: riscv64gc-unknown-linux-musl
                       use-cross: false
+                      can-execute: false
+                      expect-cross: "--expect-cross"
                     - os-name: Windows-x86_64
                       runs-on: windows-latest
                       target: x86_64-pc-windows-msvc
