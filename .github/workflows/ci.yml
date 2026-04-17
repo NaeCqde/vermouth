@@ -60,9 +60,10 @@ jobs:
                   override: true
                   profile: minimal
             - name: Download RISCV host tools
-              if: !matrix.platform.use-cross
+              if: matrix.platform.use-cross == false
               run: |-
                   git clone https://github.com/sophgo/host-tools --depth=1
+                  chmod +r ${{github.workspace}}/host-tools
                   export PATH=${{github.workspace}}/host-tools/gcc/riscv64-linux-musl-x86_64/bin:$PATH
             - name: Build with Cargo or Cross
               uses: actions-rs/cargo@v1
