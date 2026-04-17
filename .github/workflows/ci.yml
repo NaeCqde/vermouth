@@ -60,9 +60,9 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                   workspaces: |-
-                      ./client
-                      ./server
-                      ./nanokvm
+                      client
+                      server
+                      nanokvm
             - name: Build NanoKVM with Cargo or Cross
               if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
               uses: actions-rs/cargo@v1
