@@ -37,6 +37,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
             };
 
+            log::info!("Power: {}", power);
+
             if !old_power && power {
                 log::info!("Computer is power on");
                 log::info!("Waiting {}s...", config.wait_time);
