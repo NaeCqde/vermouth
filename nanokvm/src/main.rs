@@ -46,6 +46,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     exit(1);
                 };
             }
+            if old_power && !power {
+                log::info!("Computer is power off");
+            }
 
             old_power = power;
             sleep(Duration::from_secs(1)).await;
