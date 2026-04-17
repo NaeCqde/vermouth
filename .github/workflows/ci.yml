@@ -28,8 +28,7 @@ jobs:
                       runs-on: ubuntu-24.04-riscv
                       target: riscv64gc-unknown-linux-musl
                       use-cross: false
-                      can-execute: false
-                      expect-cross: "--expect-cross"
+
                     - os-name: Windows-x86_64
                       runs-on: windows-latest
                       target: x86_64-pc-windows-msvc
@@ -47,7 +46,8 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
-            - name: Build
+            - name: Build with Cross
+              if: matrix.platform.use-cross != false
               uses: houseabsolute/actions-rust-cross@v1
               env:
                   CRATE_NAME: vermouth
@@ -57,6 +57,22 @@ jobs:
                   target: ${{ matrix.platform.target }}
                   args: "--locked --release"
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Install Rust toolchain
+              if: matrix.platform.use-cross == false
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  target: ${{ matrix.platform.target }}
+                  override: true
+                  profile: minimal
+
+            # targetに応じてcargoもしくはcrossを使用してビルド
+            - name: Build with Cargo
+              if: matrix.platform.use-cross == false
+              uses: actions-rs/cargo@v1
+              with:
+                  command: build
+                  args: --locked --release --target ${{ matrix.platform.target }}
             - name: Wait
               shell: bash
               run: sleep $((RANDOM % 20 + 3))
