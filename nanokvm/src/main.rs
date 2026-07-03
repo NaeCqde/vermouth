@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             if !old_power && power {
                 log::info!("Computer is power on");
+                let _ = reset_hid(&config).await;
                 log::info!("Waiting {}s...", config.wait_time);
                 sleep(Duration::from_secs(config.wait_time)).await;
                 log::info!("Waiting complete");
@@ -54,6 +55,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
             sleep(Duration::from_secs(1)).await;
         }
     }
+    Ok(())
+}
+
+async fn reset_hid(config: &config::Config) -> Result<(), Box<dyn Error>> {
+    let client = Client::default();
+    client
+        .post(format!("{}/api/hid/reset", config.nanokvm.server))
+        .send()
+        .await?;
+    log::info!("Reset HID");
     Ok(())
 }
 
