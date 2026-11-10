@@ -34,7 +34,7 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 `.env`(または環境変数): `SERVER`(サーバーの URL)、`TOKEN`。
 1. `POST $SERVER` に `Authorization: <TOKEN>` を付けて、`{source, mount, password}` を受け取る。200 以外はエラーで終了(終了コード 1)。
 2. 環境変数 `SOURCE`、`MOUNT`、`PASSWORD` を渡して、スクリプトを実行し、終わりを待つ。
-   - Linux/macOS: `sh run.sh`(`linux.sh` の中身は `echo $PASSWORD | veracrypt -t $SOURCE $MOUNT`)
+   - Linux/macOS: `sh run.sh`(`linux.sh` の中身は `printf '%s\n' "$PASSWORD" | veracrypt -t "$SOURCE" "$MOUNT"`)
    - Windows: `cmd /c run.bat`(`windows.bat` は `VeraCrypt.exe /q /v "%SOURCE%" /l %MOUNT% /p "%PASSWORD%"`)
 
 ## NanoKVM(`nanokvm/`)
@@ -54,6 +54,6 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 - **サーバーとの通信は平文の HTTP。** パスワードが、経路で盗み見られうる。信頼できる LAN の中だけで使うこと。可能なら TLS にする。
 - クライアントの識別は接続元 IP とトークンだけ。同じ LAN で IP を偽られると、他のクライアントのパスワードを引かれうる。
 - トークンは固定の合言葉で、比較は通常の文字列比較。
-- パスワードは環境変数でスクリプトに渡る。Windows 版は VeraCrypt の引数(`/p`)に載るため、プロセス一覧から見える。Linux 版も `echo $PASSWORD` で扱う(変数の引用がない)。
+- パスワードは環境変数でスクリプトに渡る。Windows 版は VeraCrypt の引数(`/p`)に載るため、プロセス一覧から見える。Linux 版は変数を引用符で囲んで渡す。
 - `config.json` と `.env` には秘密が入る。リポジトリに入れない(`.gitignore` で除外する)。
 - NanoKVM の `NANOKVM_USERNAME` / `NANOKVM_PASSWORD` は `.env` にあるが、コードでは使っていない(`/api/hid/*` へ認証なしで送っている)。
