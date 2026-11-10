@@ -35,6 +35,7 @@ on:
 
 env:
     GITHUB_TOKEN: ${{ github.token }}
+    CC_aarch64_unknown_linux_musl: musl-gcc
     RUST_BACKTRACE: 1
 
 jobs:
@@ -49,9 +50,9 @@ jobs:
                       target: x86_64-unknown-linux-musl
                       use-cross: true
                     - os-name: Linux-aarch64
-                      runs-on: ubuntu-latest
+                      runs-on: ubuntu-24.04-arm
                       target: aarch64-unknown-linux-musl
-                      use-cross: true
+                      use-cross: false
                     - os-name: Linux-riscv64
                       runs-on: ubuntu-24.04-riscv
                       target: riscv64gc-unknown-linux-musl
@@ -69,6 +70,11 @@ jobs:
         runs-on: ${{ matrix.platform.runs-on }}
         steps:
             - uses: actions/checkout@v4
+            # aarch64 is built natively (the cross container is too old to run the build scripts of newer crates);
+            # musl-gcc compiles the C parts for the musl target
+            - name: Install musl tools (aarch64)
+              if: matrix.platform.target == 'aarch64-unknown-linux-musl'
+              run: sudo apt-get update && sudo apt-get install -y musl-tools
             - uses: actions-rs/toolchain@v1
               with:
                   toolchain: stable
@@ -107,6 +113,7 @@ jobs:
                   extra-files: |-
                       ./.env.example
                       ../README.md
+                      ../LICENSE
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
                       {
@@ -130,6 +137,7 @@ jobs:
                   extra-files: |-
                       ./.env.example
                       ../README.md
+                      ../LICENSE
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
                       {
@@ -169,6 +177,7 @@ jobs:
                       windows.bat
                       ./.env.example
                       ../README.md
+                      ../LICENSE
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
                       {
@@ -194,6 +203,7 @@ jobs:
                       windows.bat
                       ./.env.example
                       ../README.md
+                      ../LICENSE
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
                       {
@@ -232,6 +242,7 @@ jobs:
                   extra-files: |-
                       example.config.json
                       ../README.md
+                      ../LICENSE
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
                       {
@@ -255,6 +266,7 @@ jobs:
                   extra-files: |-
                       example.config.json
                       ../README.md
+                      ../LICENSE
                   _force-release-for-testing: true
                   action-gh-release-parameters: |
                       {
