@@ -1,10 +1,14 @@
-name: release
+name: ci
 
-permissions:
-    contents: write
-
+# Every push and pull request builds the three programs (client, server and, on RISC-V, nanokvm) for every platform and
+# archives them. The `latest` pre-release is updated by every push to a branch (its tag moves to the pushed commit); a version
+# tag (`git tag v0.1.0 && git push --tags`), or a run started by hand with a tag name, makes the release of that tag. A pull
+# request does not publish anything. Changes to documentation, the license and editor settings alone do not start it.
 on:
     push:
+        branches: ["**"]
+        tags:
+            - "v*"
         paths-ignore:
             - "**.md"
             - "LICENSE*"
@@ -32,49 +36,39 @@ on:
             - ".github/workflows/security-review.yml"
             - ".github/workflows/weekly-security.yml"
             - "**/.DS_Store"
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: "Tag of the release to create (made from the selected branch if it does not exist)"
+                required: true
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
 
 env:
-    GITHUB_TOKEN: ${{ github.token }}
-    CC_aarch64_unknown_linux_musl: musl-gcc
     RUST_BACKTRACE: 1
 
 jobs:
-    release:
-        name: Release - ${{ matrix.platform.os-name }}
+    package:
+        name: Build - ${{ matrix.platform.os-name }}
         strategy:
             fail-fast: false
             matrix:
+                # https://github.com/actions/runner-images
+                # https://github.com/apps/rise-risc-v-runners-personal
                 platform:
-                    - os-name: Linux-x86_64
-                      runs-on: ubuntu-latest
-                      target: x86_64-unknown-linux-musl
-                      use-cross: true
-                    - os-name: Linux-aarch64
-                      runs-on: ubuntu-24.04-arm
-                      target: aarch64-unknown-linux-musl
-                      use-cross: false
-                    - os-name: Linux-riscv64
-                      runs-on: ubuntu-24.04-riscv
-                      target: riscv64gc-unknown-linux-musl
-                      use-cross: false
-
-                    - os-name: Windows-x86_64
-                      runs-on: windows-latest
-                      target: x86_64-pc-windows-msvc
-                      use-cross: true
-
-                    - os-name: macOS-aarch64
-                      runs-on: macos-latest
-                      target: aarch64-apple-darwin
-                      use-cross: true
+                    - {os-name: Linux-x86_64, runs-on: ubuntu-24.04, target: x86_64-unknown-linux-musl, ext: "", zip: false, crates: "client server"}
+                    - {os-name: Linux-aarch64, runs-on: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, ext: "", zip: false, crates: "client server"}
+                    - {os-name: Linux-riscv64, runs-on: ubuntu-24.04-riscv, target: riscv64gc-unknown-linux-musl, ext: "", zip: false, crates: "client server nanokvm"}
+                    - {os-name: Windows-x86_64, runs-on: windows-2025, target: x86_64-pc-windows-msvc, ext: ".exe", zip: true, crates: "client server"}
+                    - {os-name: macOS-aarch64, runs-on: macos-latest, target: aarch64-apple-darwin, ext: "", zip: false, crates: "client server"}
         runs-on: ${{ matrix.platform.runs-on }}
         steps:
             - uses: actions/checkout@v4
-            # aarch64 is built natively (the cross container is too old to run the build scripts of newer crates);
-            # musl-gcc compiles the C parts for the musl target
-            - name: Install musl tools (aarch64)
-              if: matrix.platform.target == 'aarch64-unknown-linux-musl'
-              run: sudo apt-get update && sudo apt-get install -y musl-tools
             - uses: actions-rs/toolchain@v1
               with:
                   toolchain: stable
@@ -87,189 +81,85 @@ jobs:
                       client
                       server
                       nanokvm
-            - name: Build NanoKVM with Cargo or Cross
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              uses: actions-rs/cargo@v1
-              env:
-                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
-              with:
-                  use-cross: ${{ matrix.platform.use-cross }}
-                  command: build
-                  args: --manifest-path ./nanokvm/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Wait
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
+                  key: ${{ matrix.platform.target }}
+            # musl-gcc compiles the C parts for the musl targets (these are built natively, not with cross: its container is
+            # too old to run the build scripts of newer crates)
+            - name: Install musl tools
+              if: contains(matrix.platform.target, 'linux-musl')
+              run: sudo apt-get update && sudo apt-get install -y musl-tools
+            - name: Build
               shell: bash
-              run: sleep $((RANDOM % 20 + 3))
-            - name: Release NanoKVM 1
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              id: release-nanokvm-1
-              uses: houseabsolute/actions-rust-release@v0
               env:
-                  CRATE_NAME: vermouth-nanokvm
-              with:
-                  working-directory: ./nanokvm
-                  executable-name: vermouth-nanokvm
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      ./.env.example
-                      ../README.md
-                      ../LICENSE
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
-            - name: Wait
-              if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              shell: bash
-              run: sleep $((RANDOM % 20 + 5))
-            - name: Release NanoKVM 2
-              if: failure() && matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              id: release-nanokvm-2
-              uses: houseabsolute/actions-rust-release@v0
-              env:
-                  CRATE_NAME: vermouth-nanokvm
-              with:
-                  working-directory: ./nanokvm
-                  executable-name: vermouth-nanokvm
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      ./.env.example
-                      ../README.md
-                      ../LICENSE
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
-            - name: Build Client with Cargo or Cross
-              if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
-              uses: actions-rs/cargo@v1
-              with:
-                  use-cross: ${{ matrix.platform.use-cross }}
-                  command: build
-                  args: --manifest-path ./client/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Build Client RISCV with Cargo or Cross
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              uses: actions-rs/cargo@v1
-              env:
-                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
-              with:
-                  use-cross: ${{ matrix.platform.use-cross }}
-                  command: build
-                  args: --manifest-path ./client/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Wait
-              shell: bash
-              run: sleep $((RANDOM % 20 + 3))
-            - name: Release Client 1
-              id: release-client-1
-              uses: houseabsolute/actions-rust-release@v0
-              env:
-                  CRATE_NAME: vermouth
-              with:
-                  working-directory: ./client
-                  executable-name: vermouth
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      linux.sh
-                      windows.bat
-                      ./.env.example
-                      ../README.md
-                      ../LICENSE
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
-            - name: Wait
-              if: failure()
-              shell: bash
-              run: sleep $((RANDOM % 20 + 5))
-            - name: Release Client 2
-              if: failure()
-              id: release-client-2
-              uses: houseabsolute/actions-rust-release@v0
-              env:
-                  CRATE_NAME: vermouth
-              with:
-                  working-directory: ./client
-                  executable-name: vermouth
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      linux.sh
-                      windows.bat
-                      ./.env.example
-                      ../README.md
-                      ../LICENSE
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
+                  CC_x86_64_unknown_linux_musl: musl-gcc
+                  CC_aarch64_unknown_linux_musl: musl-gcc
+                  CC_riscv64gc_unknown_linux_musl: musl-gcc
+              run: |
+                  if [[ "${{ matrix.platform.target }}" == *linux-musl ]]; then export RUSTFLAGS="-Ctarget-feature=+crt-static"; fi
+                  for crate in ${{ matrix.platform.crates }}; do
+                    cargo build --manifest-path "$crate/Cargo.toml" --locked --release --target ${{ matrix.platform.target }}
+                  done
 
-            - name: Build Server with Cargo or Cross
-              if: matrix.platform.target != 'riscv64gc-unknown-linux-musl'
-              uses: actions-rs/cargo@v1
-              with:
-                  use-cross: ${{ matrix.platform.use-cross }}
-                  command: build
-                  args: --manifest-path ./server/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Build Server RISCV with Cargo or Cross
-              if: matrix.platform.target == 'riscv64gc-unknown-linux-musl'
-              uses: actions-rs/cargo@v1
-              env:
-                  RUSTFLAGS: "-Ctarget-feature=+crt-static"
-              with:
-                  use-cross: ${{ matrix.platform.use-cross }}
-                  command: build
-                  args: --manifest-path ./server/Cargo.toml --locked --release --target ${{ matrix.platform.target }}
-            - name: Wait
+            # One archive per program and platform: the executable, the files it needs, the README and the license, in a folder
+            # of the same name; and the SHA-256 of the archive next to it.
+            - name: Package
               shell: bash
-              run: sleep $((RANDOM % 20 + 3))
-            - name: Release Server 1
-              id: release-server-1
-              uses: houseabsolute/actions-rust-release@v0
-              env:
-                  CRATE_NAME: vermouth-server
+              run: |
+                  mkdir out
+                  pack() { # crate executable extra-files...
+                    local crate="$1" exe="$2"; shift 2
+                    local name="$exe-${{ matrix.platform.os-name }}"
+                    mkdir "$name"
+                    cp "$crate/target/${{ matrix.platform.target }}/release/$exe${{ matrix.platform.ext }}" "$name/"
+                    for f in "$@"; do cp "$crate/$f" "$name/"; done
+                    cp README.md LICENSE "$name/"
+                    if [ "${{ matrix.platform.zip }}" = "true" ]; then
+                      archive="$name.zip"
+                      "$(cygpath -u "$SYSTEMROOT")/System32/tar.exe" -a -cf "out/$archive" "$name"
+                    else
+                      archive="$name.tar.gz"
+                      tar czf "out/$archive" "$name"
+                    fi
+                    (cd out && if command -v sha256sum > /dev/null; then sha256sum "$archive" > "$archive.sha256"; else shasum -a 256 "$archive" > "$archive.sha256"; fi)
+                  }
+                  pack client vermouth linux.sh windows.bat .env.example
+                  pack server vermouth-server example.config.json
+                  if [[ " ${{ matrix.platform.crates }} " == *" nanokvm "* ]]; then pack nanokvm vermouth-nanokvm .env.example; fi
+            - uses: actions/upload-artifact@v4
               with:
-                  working-directory: ./server
-                  executable-name: vermouth-server
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      example.config.json
-                      ../README.md
-                      ../LICENSE
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
-            - name: Wait
-              if: failure()
-              shell: bash
-              run: sleep $((RANDOM % 20 + 5))
-            - name: Release Server 2
-              if: failure()
-              id: release-server-2
-              uses: houseabsolute/actions-rust-release@v0
-              env:
-                  CRATE_NAME: vermouth-server
+                  name: vermouth-${{ matrix.platform.os-name }}
+                  path: out/*
+                  if-no-files-found: error
+
+    # After the platforms have built. The slow RISC-V build does not hold back a release that the others could make, but a
+    # platform that failed is missing from it.
+    release:
+        name: Release
+        needs: package
+        if: ${{ !cancelled() }}
+        runs-on: ubuntu-24.04
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/download-artifact@v4
               with:
-                  working-directory: ./server
-                  executable-name: vermouth-server
-                  target: ${{ matrix.platform.target }}
-                  extra-files: |-
-                      example.config.json
-                      ../README.md
-                      ../LICENSE
-                  _force-release-for-testing: true
-                  action-gh-release-parameters: |
-                      {
-                          "repository": "NaeCqde/vermouth",
-                          "token": "${{ secrets.GITHUB_TOKEN }}"
-                      }
+                  path: dist
+                  merge-multiple: true
+            - name: List the files
+              run: ls -l dist
+            - name: Move the latest tag
+              if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh api -X PATCH "repos/${{ github.repository }}/git/refs/tags/latest" -f sha="${{ github.sha }}" -F force=true \
+                    || gh api -X POST "repos/${{ github.repository }}/git/refs" -f ref="refs/tags/latest" -f sha="${{ github.sha }}"
+            - name: Make the release
+              if: github.event_name != 'pull_request'
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'latest' }}
+                  target_commitish: ${{ github.sha }}
+                  prerelease: ${{ !(inputs.tag || startsWith(github.ref, 'refs/tags/v')) }}
+                  files: dist/*
+                  generate_release_notes: ${{ inputs.tag != '' || startsWith(github.ref, 'refs/tags/v') }}
+                  fail_on_unmatched_files: true
