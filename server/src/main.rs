@@ -3,7 +3,7 @@ mod config;
 use config::CONFIG;
 use ntex::{
     http::Response,
-    web::{self, HttpServer},
+    web::{self, HttpRequest, HttpServer},
 };
 use std::{env, error::Error, process::exit};
 use std::io::Read;
@@ -119,7 +119,7 @@ fn tools() -> Option<i32> {
     }
 }
 
-async fn fetch_password(body: ntex::util::Bytes) -> Response {
+async fn fetch_password(req: HttpRequest, body: ntex::util::Bytes) -> Response {
     if body.len() > MAX_REQUEST_LEN {
         return Response::NotFound().finish();
     }
@@ -132,7 +132,14 @@ async fn fetch_password(body: ntex::util::Bytes) -> Response {
         log::warn!("unknown device key {}", device);
         return Response::NotFound().finish();
     };
-    log::info!("device {}", name);
+    let Some(peer) = req.peer_addr().map(|a| a.ip().to_canonical()) else {
+        return Response::InternalServerError().finish();
+    };
+    if peer != found.ip.to_canonical() {
+        log::warn!("device {} connected from {} (expected {})", name, peer, found.ip);
+        return Response::NotFound().finish();
+    }
+    log::info!("device {} from {}", name, peer);
 
     let sealed = serde_json::to_vec(&found.container)
         .map_err(|e| e.to_string())

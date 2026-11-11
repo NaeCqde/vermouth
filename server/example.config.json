@@ -4,6 +4,7 @@
     "devices": {
         "my-pc": {
             "key": "",
+            "ip": "1.1.1.1",
             "source": "",
             "mount": "",
             "password": ""

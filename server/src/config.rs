@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap, error::Error, fs::File, io::BufReader, process::exit,
+    collections::HashMap, error::Error, fs::File, io::BufReader, net::IpAddr, process::exit,
 };
 
 pub static CONFIG: Lazy<Config> = Lazy::new(|| match load() {
@@ -23,6 +23,8 @@ pub struct Container {
 pub struct Device {
     /// The public key of the device (base64), made from its token with `vermouth-server key`. The token itself is not stored.
     pub key: String,
+    /// The source IP address the device must connect from (both the key and the address have to match).
+    pub ip: IpAddr,
     #[serde(flatten)]
     pub container: Container,
 }

@@ -24,18 +24,18 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 設定 `config.json`(作業ディレクトリ。なければ起動時にエラーで終了):
 
 ```json
-{ "server_key": "…", "listen": "0.0.0.0:9810", "devices": { "<端末の名前>": { "key": "…", "source": "…", "mount": "…", "password": "…" } } }
+{ "server_key": "…", "listen": "0.0.0.0:9810", "devices": { "<端末の名前>": { "key": "…", "ip": "…", "source": "…", "mount": "…", "password": "…" } } }
 ```
 
 - `server_key`: サーバーの秘密鍵(base64)。`vermouth-server server-key` で作る。config.json は他人に読ませない。
 - `listen`: 引数なしで起動したときに待ち受ける `host:port`(省略可。環境変数 `LISTEN` が優先)。
-- `devices`: 端末ごとの設定。`key` はその端末の**公開鍵**(base64。token から作った一方向の値で、token そのものは保存しない。`vermouth-server token` または `vermouth-server key` で作る)。`source`(コンテナのパス)、`mount`(マウント先)、`password`(パスワード)。
+- `devices`: 端末ごとの設定。`key` はその端末の**公開鍵**(base64。token から作った一方向の値で、token そのものは保存しない。`vermouth-server token` または `vermouth-server key` で作る)。`ip`(この端末が接続してくる元の IP アドレス。鍵と IP の**両方**が合わないと答えない)、`source`(コンテナのパス)、`mount`(マウント先)、`password`(パスワード)。
 
 補助コマンド(config.json は不要): `vermouth-server token`(端末用の新しい TOKEN と、config.json 用の `key` を出す)、`vermouth-server key`(標準入力の token から `key` を出す)、`vermouth-server server-key`(サーバーの鍵対を出す)。
 
 エンドポイント: **`POST /` だけ**。本文はハンドシェイクの第 1 メッセージ(バイナリ、256 バイトまで)。
 - 開けない(このサーバーの鍵あてでない、壊れている、長すぎる)、または `devices` に鍵がなければ 404(本文なし)。
-- 開けて、端末が見つかったら、`{source, mount, password}` の JSON を載せた第 2 メッセージを返す(200、`application/octet-stream`)。接続元の IP は端末の判定に**使わない**。
+- 開けて、端末が見つかったら、`{source, mount, password}` の JSON を載せた第 2 メッセージを返す(200、`application/octet-stream`)。接続元の IP(`peer_addr`)が端末の `ip` と違えば 404。
 
 ### 通信の暗号化
 
@@ -45,7 +45,7 @@ HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_B
 - クライアントはサーバーの公開鍵(`SERVER_KEY`)を固定(ピン留め)して持つ。秘密鍵を持たない者は答えられないので、経路上の偽サーバーは拒否される。
 - 双方が静的鍵で互いを認証し、通信の鍵は双方の一時鍵から作る(前方秘匿性: 後で token やサーバー鍵が漏れても、記録した通信は開けない)。端末の公開鍵は暗号化されて送られ、経路からは見えない。
 - 記録したリクエストを経路で再送されても、答えを開けるのはそのリクエストを作った本人だけ。改ざん・差し替えは認証で弾かれる。
-- 守れるもの: 盗み見、改ざん、なりすまし(サーバー側も端末側も)、再送、接続元 IP の偽装。守れないもの: 通信の存在とそのタイミング・大きさ、通信を落とすなどの妨害。端末の token とサーバーの秘密鍵は守ること。
+- 守れるもの: 盗み見、改ざん、なりすまし(サーバー側も端末側も)、再送、IP の偽装による他の端末へのなりすまし(IP は追加の条件で、鍵が主)。守れないもの: 通信の存在とそのタイミング・大きさ、通信を落とすなどの妨害。端末の token とサーバーの秘密鍵は守ること。
 - TLS ではないので、証明書は要らない。
 - 端末の名前をログに出す。
 
@@ -73,7 +73,7 @@ HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_B
 
 - サーバーとの通信は HTTP の上で Noise IK のハンドシェイクを行い、端末ごとの token とサーバーの公開鍵のピン留めで相互に認証し、暗号化している(上の「通信の暗号化」)。経路(ルーター)が乗っ取られても、パスワードは読めず、サーバーにもなりすませない。
 - **このバージョンで通信の形式が変わった。** 古いクライアント・古い `vermouth-nanokvm` は新しいサーバーと話せない(サーバーは 404)。全部を同じバージョンにすること。`nanokvm/directory/data/vermouth/vermouth-nanokvm` は古い形式のままなので、リリースの `vermouth-nanokvm-Linux-riscv64` で置き換える。
-- クライアントの識別は接続元 IP とトークンだけ。同じ LAN で IP を偽られると、他のクライアントのパスワードを引かれうる。
+- 端末の識別は鍵(token から作る)と接続元 IP の両方。IP だけでは通らず、鍵だけでも別の IP からは通らない。
 - トークンは固定の共有の秘密。署名の比較は定数時間。
 - パスワードは環境変数でスクリプトに渡る。Windows 版は VeraCrypt の引数(`/p`)に載るため、プロセス一覧から見える。Linux 版も `echo $PASSWORD` で扱う(変数の引用がない)。
 - `config.json` と `.env` には秘密が入る。リポジトリに入れない(`.gitignore` で除外する)。
