@@ -8,11 +8,11 @@
 //!   answer, so a router that spoofs the server is rejected.
 //! * Both sides are authenticated by their static keys; the session keys come from ephemeral keys on both sides (forward
 //!   secrecy: a later leak of a token or of the server key does not open a recorded answer).
-//! * The device's public key is sent encrypted. The source IP is not used for anything.
+//! * The device's public key is sent encrypted. The server also requires the configured source IP (an extra condition; the key is the main one).
 //! * The answer can only be opened by the one who sent the request, so a recorded request replayed by the router gets an
 //!   answer that nobody can read.
 //!
-//! Use long random tokens: `vermouth-server keygen` makes one.
+//! Use long random tokens: `vermouth-server token` makes one.
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use hkdf::Hkdf;
