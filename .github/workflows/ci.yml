@@ -57,11 +57,11 @@ jobs:
             fail-fast: false
             matrix:
                 # https://github.com/actions/runner-images
-                # https://github.com/apps/rise-risc-v-runners-personal
+                # RISC-V is cross-built on a normal x86_64 runner (the native RISC-V runner is slow and flaky)
                 platform:
                     - {os-name: Linux-x86_64, runs-on: ubuntu-24.04, target: x86_64-unknown-linux-musl, ext: "", zip: false, crates: "client server"}
                     - {os-name: Linux-aarch64, runs-on: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, ext: "", zip: false, crates: "client server"}
-                    - {os-name: Linux-riscv64, runs-on: ubuntu-24.04-riscv, target: riscv64gc-unknown-linux-musl, ext: "", zip: false, crates: "client server nanokvm"}
+                    - {os-name: Linux-riscv64, runs-on: ubuntu-24.04, target: riscv64gc-unknown-linux-musl, ext: "", zip: false, crates: "client server nanokvm", cross: true}
                     - {os-name: Windows-x86_64, runs-on: windows-2025, target: x86_64-pc-windows-msvc, ext: ".exe", zip: true, crates: "client server"}
                     - {os-name: macOS-aarch64, runs-on: macos-latest, target: aarch64-apple-darwin, ext: "", zip: false, crates: "client server"}
         runs-on: ${{ matrix.platform.runs-on }}
@@ -83,7 +83,7 @@ jobs:
             # musl-gcc compiles the C parts for the musl targets (these are built natively, not with cross: its container is
             # too old to run the build scripts of newer crates)
             - name: Install musl tools
-              if: contains(matrix.platform.target, 'linux-musl')
+              if: contains(matrix.platform.target, 'linux-musl') && !matrix.platform.cross
               run: sudo apt-get update && sudo apt-get install -y musl-tools
             - name: Build
               shell: bash
@@ -92,6 +92,20 @@ jobs:
                   CC_aarch64_unknown_linux_musl: musl-gcc
                   CC_riscv64gc_unknown_linux_musl: musl-gcc
               run: |
+                  if [[ "${{ matrix.platform.cross }}" == "true" ]]; then
+                    # The cross toolchain of rust-musl-cross (a static musl binary for RISC-V, built on this x86_64 runner). The image's
+                    # own cargo config is not used because CARGO_HOME is moved, so the linker is given by the environment.
+                    mkdir -p "$HOME/.cargo/registry" "$HOME/.cargo/git"
+                    docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/work -w /work \
+                      -v "$HOME/.cargo/registry":/cargo/registry -v "$HOME/.cargo/git":/cargo/git \
+                      -e HOME=/tmp/home -e CARGO_HOME=/cargo \
+                      -e CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_MUSL_LINKER=riscv64-unknown-linux-musl-gcc \
+                      -e CC_riscv64gc_unknown_linux_musl=riscv64-unknown-linux-musl-gcc \
+                      -e RUSTFLAGS="-Ctarget-feature=+crt-static" \
+                      ghcr.io/rust-cross/rust-musl-cross:riscv64gc-musl \
+                      sh -c 'for crate in ${{ matrix.platform.crates }}; do cargo build --manifest-path "$crate/Cargo.toml" --locked --release --target ${{ matrix.platform.target }} || exit 1; done'
+                    exit 0
+                  fi
                   if [[ "${{ matrix.platform.target }}" == *linux-musl ]]; then export RUSTFLAGS="-Ctarget-feature=+crt-static"; fi
                   for crate in ${{ matrix.platform.crates }}; do
                     cargo build --manifest-path "$crate/Cargo.toml" --locked --release --target ${{ matrix.platform.target }}
@@ -118,7 +132,7 @@ jobs:
                   path: out/*
                   if-no-files-found: error
 
-    # After the platforms have built. The slow RISC-V build does not hold back a release that the others could make, but a
+    # After the platforms have built. A platform that fails does not hold back a release that the others could make, but a
     # platform that failed is missing from it.
     release:
         name: Release
