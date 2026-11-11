@@ -6,7 +6,9 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 
 ## サーバー
 
-パスワードを配る HTTP サーバー(`vermouth-server`)です。`vermouth-server <ホスト> <ポート>` で起動します。設定の雛形は `server.example.config.json` です。
+パスワードを配る HTTP サーバー(`vermouth-server`)です。`vermouth-server <ホスト> <ポート>` で起動します。設定の雛形は `server.example.config.json` です。待ち受けるアドレスは、引数 `<ホスト> <ポート>`、環境変数 `LISTEN=host:port`、`config.json` の `"listen"` のどれでも決められます。
+
+通信は、答え(パスワード)を `token` から作った鍵で暗号化・認証してあります(TLS ではなく、証明書は不要です)。`token` は `openssl rand -base64 32` のような長いランダムな値にしてください。クライアントとサーバーのバージョンは揃えてください(古いクライアントは新しいサーバーと話せません)。
 
 ## クライアント
 

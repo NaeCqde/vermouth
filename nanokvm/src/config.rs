@@ -1,14 +1,9 @@
 use dotenvy;
-use reqwest::{header, Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use vermouth_common::fetch_container;
 
-#[derive(Serialize, Deserialize, Clone)]
-pub struct Container {
-    pub source: String,
-    pub mount: String,
-    pub password: String,
-}
+pub use vermouth_common::Container;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NanoKVM {
     pub server: String,
@@ -42,20 +37,5 @@ pub async fn load() -> Result<Config, Box<dyn Error>> {
 pub async fn load_container() -> Result<Container, Box<dyn Error>> {
     let server = dotenvy::var("SERVER")?;
     let token = dotenvy::var("TOKEN")?;
-
-    let client = Client::default();
-
-    let resp = client
-        .post(server)
-        .header(header::AUTHORIZATION, &token)
-        .send()
-        .await?;
-
-    let status = resp.status();
-    if status != StatusCode::OK {
-        return Err(format!("request failure: {}", status.as_str()).into());
-    }
-
-    let container = resp.json::<Container>().await?;
-    return Ok(container);
+    fetch_container(&server, &token).await
 }

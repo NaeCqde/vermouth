@@ -22,6 +22,9 @@ pub struct Container {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub token: String,
+    /// `host:port` to listen on when the program is started without arguments (the environment variable `LISTEN` wins).
+    #[serde(default)]
+    pub listen: Option<String>,
     pub containers: HashMap<IpAddr, Container>,
 }
 
