@@ -8,7 +8,7 @@ A system that hands out the password of a VeraCrypt-encrypted container from a s
 
 The HTTP server that hands out the passwords (`vermouth-server`). The address to listen on is decided by, in this order: the arguments `<host> <port>`, the environment variable `LISTEN=host:port`, or `"listen"` in `config.json`. The config template is `server.example.config.json`.
 
-The answer (the password) is encrypted and authenticated with keys made from the `token` (plain HTTP, no certificate needed; it is not TLS). Use a long random `token`, for example `openssl rand -base64 32`. Keep the client and the server on the same version (an old client cannot talk to a new server).
+The channel is a Noise `IK` handshake over plain HTTP: every device has its own `TOKEN`, the client pins the public key of the server (`SERVER_KEY`), and both sides authenticate each other and encrypt (it is not TLS; no certificate needed). The `config.json` of the server holds only the public `key` of each device (made from its token), never the token. A compromised router can not read, change, spoof or replay anything. `vermouth-server token` makes a device token and its `key`; `vermouth-server server-key` makes the keys of the server. Keep the client and the server on the same version (an old client cannot talk to a new server).
 
 ## Client
 

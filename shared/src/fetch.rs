@@ -1,5 +1,5 @@
-use crate::{Keys, NONCE_HEADER};
-use reqwest::{header, Client, StatusCode};
+use crate::ClientHandshake;
+use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
@@ -10,16 +10,15 @@ pub struct Container {
     pub password: String,
 }
 
-/// Asks the server for the container of this computer. The token is not sent: the request is signed with it and the answer
-/// comes encrypted with it (see the crate documentation).
-pub async fn fetch_container(server: &str, token: &str) -> Result<Container, Box<dyn Error>> {
-    let keys = Keys::from_token(token);
-    let nonce = Keys::new_nonce()?;
+/// Asks the server for the container of this device. `token` is the device's own token (never sent), `server_key` the pinned
+/// public key of the server (see the crate documentation).
+pub async fn fetch_container(server: &str, token: &str, server_key: &str) -> Result<Container, Box<dyn Error>> {
+    let (hs, request) = ClientHandshake::start(token, server_key)?;
 
     let resp = Client::default()
         .post(server)
-        .header(NONCE_HEADER, &nonce)
-        .header(header::AUTHORIZATION, keys.request_tag(&nonce))
+        .header("content-type", "application/octet-stream")
+        .body(request)
         .send()
         .await?;
 
@@ -28,7 +27,6 @@ pub async fn fetch_container(server: &str, token: &str) -> Result<Container, Box
         return Err(format!("request failure: {}", status.as_str()).into());
     }
 
-    let sealed = resp.bytes().await?;
-    let plain = keys.open(&nonce, &sealed)?;
+    let plain = hs.finish(&resp.bytes().await?)?;
     Ok(serde_json::from_slice(&plain)?)
 }

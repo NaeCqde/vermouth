@@ -2,18 +2,22 @@ mod config;
 
 use config::CONFIG;
 use ntex::{
-    http::{header, Response},
-    web::{self, HttpRequest, HttpServer},
+    http::Response,
+    web::{self, HttpServer},
 };
-use once_cell::sync::Lazy;
 use std::{env, error::Error, process::exit};
-use vermouth_common::{Keys, MIN_TOKEN_LEN, NONCE_HEADER};
-
-static KEYS: Lazy<Keys> = Lazy::new(|| Keys::from_token(&CONFIG.token));
+use std::io::Read;
+use vermouth_common::{
+    device_public_b64, new_server_keypair, new_token, server_public_b64, ServerAnswer, MAX_REQUEST_LEN, MIN_TOKEN_LEN,
+};
 
 #[ntex::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+
+    if let Some(code) = tools() {
+        exit(code);
+    }
 
     let (host, port) = match listen_address() {
         Ok(a) => a,
@@ -24,14 +28,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    if CONFIG.token.len() < MIN_TOKEN_LEN {
-        log::warn!(
-            "the token is shorter than {} characters: the answers can be guessed offline from a recording. Use a long random one (openssl rand -base64 32)",
-            MIN_TOKEN_LEN
-        );
-    }
-    // the keys are made now, not at the first request
-    Lazy::force(&KEYS);
+    let public = match server_public_b64(&CONFIG.server_key) {
+        Ok(p) => p,
+        Err(e) => {
+            log::error!("server_key in config.json: {} (make one with: vermouth-server server-key)", e);
+            exit(1);
+        }
+    };
+    log::info!("SERVER_KEY for the clients: {}", public);
+    log::info!("{} device(s)", CONFIG.devices.len());
 
     log::info!("listening on {}:{}", host, port);
     Ok(HttpServer::new(|| web::App::new().route("/", web::post().to(fetch_password)))
@@ -72,28 +77,66 @@ fn parse_listen(s: &str) -> Result<(String, u16), String> {
     Ok((host.to_string(), port))
 }
 
-async fn fetch_password(req: HttpRequest) -> Response {
-    let header_value = |name: &str| req.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_owned);
-    let (nonce, tag) = match (header_value(NONCE_HEADER), header_value(header::AUTHORIZATION.as_str())) {
-        (Some(n), Some(t)) => (n, t),
-        _ => return Response::NotFound().finish(),
-    };
-    if !KEYS.verify_request(&nonce, &tag) {
+/// The helper commands (they do not need config.json): `token`, `key`, `server-key`. Returns the exit code when one ran.
+fn tools() -> Option<i32> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 2 {
+        return None;
+    }
+    match args[1].as_str() {
+        "token" => match new_token() {
+            Ok(token) => {
+                println!("TOKEN={}   (for the .env of the device; keep it secret)", token);
+                println!("\"key\": \"{}\"   (for \"devices\" in config.json)", device_public_b64(&token));
+                Some(0)
+            }
+            Err(e) => {
+                eprintln!("{}", e);
+                Some(1)
+            }
+        },
+        "key" => {
+            let mut token = String::new();
+            if std::io::stdin().read_to_string(&mut token).is_err() || token.trim().len() < MIN_TOKEN_LEN {
+                eprintln!("give the token on the standard input (at least {} characters)", MIN_TOKEN_LEN);
+                return Some(1);
+            }
+            println!("{}", device_public_b64(&token));
+            Some(0)
+        }
+        "server-key" => match new_server_keypair() {
+            Ok((secret, public)) => {
+                println!("\"server_key\": \"{}\"   (secret: for config.json)", secret);
+                println!("SERVER_KEY={}   (public: for the .env of the devices)", public);
+                Some(0)
+            }
+            Err(e) => {
+                eprintln!("{}", e);
+                Some(1)
+            }
+        },
+        _ => None,
+    }
+}
+
+async fn fetch_password(body: ntex::util::Bytes) -> Response {
+    if body.len() > MAX_REQUEST_LEN {
         return Response::NotFound().finish();
     }
-
-    let ip = match req.peer_addr() {
-        Some(a) => a.ip(),
-        None => return Response::InternalServerError().finish(),
-    };
-    println!("{}", ip);
-
-    let Some(container) = CONFIG.containers.get(&ip) else {
+    // everything that is not a valid first message for this server's key gets the same answer: 404
+    let Ok(request) = ServerAnswer::open(&CONFIG.server_key, &body) else {
         return Response::NotFound().finish();
     };
-    let sealed = serde_json::to_vec(container)
+    let device = request.device_b64();
+    let Some((name, found)) = CONFIG.devices.iter().find(|(_, d)| d.key == device) else {
+        log::warn!("unknown device key {}", device);
+        return Response::NotFound().finish();
+    };
+    log::info!("device {}", name);
+
+    let sealed = serde_json::to_vec(&found.container)
         .map_err(|e| e.to_string())
-        .and_then(|json| KEYS.seal(&nonce, &json).map_err(|e| e.to_string()));
+        .and_then(|json| request.answer(&json).map_err(|e| e.to_string()));
     match sealed {
         Ok(body) => Response::Ok().content_type("application/octet-stream").body(body),
         Err(e) => {

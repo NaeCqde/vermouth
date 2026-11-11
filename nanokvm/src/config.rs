@@ -37,5 +37,6 @@ pub async fn load() -> Result<Config, Box<dyn Error>> {
 pub async fn load_container() -> Result<Container, Box<dyn Error>> {
     let server = dotenvy::var("SERVER")?;
     let token = dotenvy::var("TOKEN")?;
-    fetch_container(&server, &token).await
+    let server_key = dotenvy::var("SERVER_KEY")?;
+    fetch_container(&server, &token, &server_key).await
 }

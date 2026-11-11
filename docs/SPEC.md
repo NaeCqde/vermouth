@@ -6,7 +6,7 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 | ディレクトリ | 役割 |
 |---|---|
 | `server/` | パスワードを配る HTTP サーバー(`vermouth-server`、ntex) |
-| `shared/` | 3 つに共通のクレート `vermouth_common`。答えの暗号化と署名(`Keys`)、サーバーからの取得(`fetch_container`、feature `client`) |
+| `shared/` | 3 つに共通のクレート `vermouth_common`。ハンドシェイクと暗号化(`ClientHandshake`、`ServerAnswer`)、サーバーからの取得(`fetch_container`、feature `client`) |
 | `client/` | パスワードを取得して VeraCrypt を動かすクライアント(`linux.sh` / `windows.bat` を呼ぶ) |
 | `nanokvm/` | NanoKVM(RISC-V の KVM 機器)の上で動き、パソコンの電源オンを検知して、パスワードを USB キーボードとして入力する |
 
@@ -24,38 +24,42 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 設定 `config.json`(作業ディレクトリ。なければ起動時にエラーで終了):
 
 ```json
-{ "token": "…", "listen": "0.0.0.0:9810", "containers": { "<クライアントのIP>": { "source": "…", "mount": "…", "password": "…" } } }
+{ "server_key": "…", "listen": "0.0.0.0:9810", "devices": { "<端末の名前>": { "key": "…", "source": "…", "mount": "…", "password": "…" } } }
 ```
 
-- `token`: クライアントとの共有の秘密。通信の暗号化と署名の鍵のもと(下の「通信の暗号化」)。**長いランダムな値にする**(`openssl rand -base64 32`)。24 文字より短いと起動時に警告を出す。
+- `server_key`: サーバーの秘密鍵(base64)。`vermouth-server server-key` で作る。config.json は他人に読ませない。
 - `listen`: 引数なしで起動したときに待ち受ける `host:port`(省略可。環境変数 `LISTEN` が優先)。
-- `containers`: クライアントの IP アドレスごとの、コンテナのパス(`source`)、マウント先(`mount`)、パスワード(`password`)。
+- `devices`: 端末ごとの設定。`key` はその端末の**公開鍵**(base64。token から作った一方向の値で、token そのものは保存しない。`vermouth-server token` または `vermouth-server key` で作る)。`source`(コンテナのパス)、`mount`(マウント先)、`password`(パスワード)。
 
-エンドポイント: **`POST /` だけ**。
-- ヘッダー `x-vermouth-nonce` と `Authorization`(署名)が無い、または署名が合わなければ 404(本文なし)。
-- 合ったら、接続元の IP(`peer_addr`)を `containers` から引く。あれば `{source, mount, password}` の JSON を**暗号化して**返す(200、`application/octet-stream`)。なければ 404。
+補助コマンド(config.json は不要): `vermouth-server token`(端末用の新しい TOKEN と、config.json 用の `key` を出す)、`vermouth-server key`(標準入力の token から `key` を出す)、`vermouth-server server-key`(サーバーの鍵対を出す)。
+
+エンドポイント: **`POST /` だけ**。本文はハンドシェイクの第 1 メッセージ(バイナリ、256 バイトまで)。
+- 開けない(このサーバーの鍵あてでない、壊れている、長すぎる)、または `devices` に鍵がなければ 404(本文なし)。
+- 開けて、端末が見つかったら、`{source, mount, password}` の JSON を載せた第 2 メッセージを返す(200、`application/octet-stream`)。接続元の IP は端末の判定に**使わない**。
 
 ### 通信の暗号化
 
-HTTP のままでも、経路で見られてパスワードが分からないようにしてある(`shared/`)。`token` から HKDF-SHA256 で署名用と暗号化用の 2 つの鍵を作る。
+HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_BLAKE2s`、`shared/`)を 1 往復で行う。
 
-- リクエスト: ランダムな nonce(16 バイト、base64)をヘッダー `x-vermouth-nonce` に、`HMAC-SHA256(署名鍵, "vermouth v1 request" ‖ nonce)`(base64)を `Authorization` に入れる。`token` そのものは送らない。
-- 答え: JSON を XChaCha20-Poly1305(暗号化鍵)で暗号化し、先頭に乱数の 24 バイトの nonce を付ける。リクエストの nonce を関連データにするので、別のリクエストへの答えを流し込んでも開けない(再生攻撃の防止)。
-- 守れるもの: 盗み見(パスワードは見えない)、答えの改ざん、答えの差し替え。守れないもの: どのクライアントがいつ問い合わせたかという通信の存在、サーバーの停止などの妨害。`token` が漏れれば破られるので、長いランダムな値にすること。
+- 端末ごとに固有の `TOKEN`。端末の鍵対は token から HKDF-SHA256 で作る。サーバーは公開鍵(`key`)だけを持つので、config.json が漏れても token は分からず、端末になりすませない。token は長いランダムな値にする(`vermouth-server token`。32 文字より短いと推測される)。
+- クライアントはサーバーの公開鍵(`SERVER_KEY`)を固定(ピン留め)して持つ。秘密鍵を持たない者は答えられないので、経路上の偽サーバーは拒否される。
+- 双方が静的鍵で互いを認証し、通信の鍵は双方の一時鍵から作る(前方秘匿性: 後で token やサーバー鍵が漏れても、記録した通信は開けない)。端末の公開鍵は暗号化されて送られ、経路からは見えない。
+- 記録したリクエストを経路で再送されても、答えを開けるのはそのリクエストを作った本人だけ。改ざん・差し替えは認証で弾かれる。
+- 守れるもの: 盗み見、改ざん、なりすまし(サーバー側も端末側も)、再送、接続元 IP の偽装。守れないもの: 通信の存在とそのタイミング・大きさ、通信を落とすなどの妨害。端末の token とサーバーの秘密鍵は守ること。
 - TLS ではないので、証明書は要らない。
-- 接続元の IP を標準出力に出す。
+- 端末の名前をログに出す。
 
 ## クライアント(`client/`)
 
-`.env`(または環境変数): `SERVER`(サーバーの URL)、`TOKEN`。
-1. `POST $SERVER` に署名付きのリクエストを送り、暗号化された答えを開いて `{source, mount, password}` を得る。200 以外、または開けなければエラーで終了(終了コード 1)。
+`.env`(または環境変数): `SERVER`(サーバーの URL)、`TOKEN`(この端末の token)、`SERVER_KEY`(サーバーの公開鍵)。
+1. `POST $SERVER` にハンドシェイクの第 1 メッセージを送り、第 2 メッセージを開いて `{source, mount, password}` を得る。200 以外、または開けなければエラーで終了(終了コード 1)。
 2. 環境変数 `SOURCE`、`MOUNT`、`PASSWORD` を渡して、スクリプトを実行し、終わりを待つ。
    - Linux/macOS: `sh run.sh`(`linux.sh` の中身は `echo $PASSWORD | veracrypt -t $SOURCE $MOUNT`)
    - Windows: `cmd /c run.bat`(`windows.bat` は `VeraCrypt.exe /q /v "%SOURCE%" /l %MOUNT% /p "%PASSWORD%"`)
 
 ## NanoKVM(`nanokvm/`)
 
-`.env`: `SERVER`、`TOKEN`(サーバーの取得用。クライアントと同じ)、`WAIT_TIME`(秒、必須)、`NANOKVM_SERVER`、`NANOKVM_USERNAME`、`NANOKVM_PASSWORD`、`MANUAL`(空でなければ手動)。
+`.env`: `SERVER`、`TOKEN`、`SERVER_KEY`(サーバーの取得用。クライアントと同じ)、`WAIT_TIME`(秒、必須)、`NANOKVM_SERVER`、`NANOKVM_USERNAME`、`NANOKVM_PASSWORD`、`MANUAL`(空でなければ手動)。
 
 - **手動(`MANUAL` あり)**: パスワードを取得して入力し、終了する(`input-password.sh` が `MANUAL=true` で実行する)。
 - **自動(既定。`S99vermouth.sh` が起動時に実行)**: 1 秒ごとに `/sys/class/gpio/gpio504/value` を読み、値が `0` で始まればパソコンの電源オンとみなす。電源が入った瞬間(前回は切、今回は入)に、
@@ -67,7 +71,7 @@ HTTP のままでも、経路で見られてパスワードが分からないよ
 
 ## セキュリティ上の注意(現状)
 
-- サーバーとの通信は HTTP のままだが、答え(パスワード)は `token` から作った鍵で暗号化・認証している(上の「通信の暗号化」)。経路で見られても、`token` を知らなければパスワードは分からない。通信の存在そのものは見える。
+- サーバーとの通信は HTTP の上で Noise IK のハンドシェイクを行い、端末ごとの token とサーバーの公開鍵のピン留めで相互に認証し、暗号化している(上の「通信の暗号化」)。経路(ルーター)が乗っ取られても、パスワードは読めず、サーバーにもなりすませない。
 - **このバージョンで通信の形式が変わった。** 古いクライアント・古い `vermouth-nanokvm` は新しいサーバーと話せない(サーバーは 404)。全部を同じバージョンにすること。`nanokvm/directory/data/vermouth/vermouth-nanokvm` は古い形式のままなので、リリースの `vermouth-nanokvm-Linux-riscv64` で置き換える。
 - クライアントの識別は接続元 IP とトークンだけ。同じ LAN で IP を偽られると、他のクライアントのパスワードを引かれうる。
 - トークンは固定の共有の秘密。署名の比較は定数時間。
