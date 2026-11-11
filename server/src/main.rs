@@ -24,6 +24,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    if CONFIG.token.is_empty() {
+        log::error!("the token in config.json is empty: anyone could compute the keys and read the passwords. Use a long random one (openssl rand -base64 32)");
+        exit(1);
+    }
     if CONFIG.token.len() < MIN_TOKEN_LEN {
         log::warn!(
             "the token is shorter than {} characters: the answers can be guessed offline from a recording. Use a long random one (openssl rand -base64 32)",
