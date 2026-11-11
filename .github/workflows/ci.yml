@@ -97,31 +97,21 @@ jobs:
                     cargo build --manifest-path "$crate/Cargo.toml" --locked --release --target ${{ matrix.platform.target }}
                   done
 
-            # One archive per program and platform: the executable, the files it needs, the README and the license, in a folder
-            # of the same name; and the SHA-256 of the archive next to it.
+            # One file per program and platform, uploaded as it is (no archive): <program>-<platform>[.exe], and its SHA-256 next to it.
+            # The license, the changes and the config templates are added once, by the release job.
             - name: Package
               shell: bash
               run: |
                   mkdir out
-                  pack() { # crate executable extra-files...
-                    local crate="$1" exe="$2"; shift 2
-                    local name="$exe-${{ matrix.platform.os-name }}"
-                    mkdir "$name"
-                    cp "$crate/target/${{ matrix.platform.target }}/release/$exe${{ matrix.platform.ext }}" "$name/"
-                    for f in "$@"; do cp "$crate/$f" "$name/"; done
-                    cp README.md LICENSE "$name/"
-                    if [ "${{ matrix.platform.zip }}" = "true" ]; then
-                      archive="$name.zip"
-                      "$(cygpath -u "$SYSTEMROOT")/System32/tar.exe" -a -cf "out/$archive" "$name"
-                    else
-                      archive="$name.tar.gz"
-                      tar czf "out/$archive" "$name"
-                    fi
-                    (cd out && if command -v sha256sum > /dev/null; then sha256sum "$archive" > "$archive.sha256"; else shasum -a 256 "$archive" > "$archive.sha256"; fi)
+                  pack() { # crate executable
+                    local crate="$1" exe="$2"
+                    local asset="$exe-${{ matrix.platform.os-name }}${{ matrix.platform.ext }}"
+                    cp "$crate/target/${{ matrix.platform.target }}/release/$exe${{ matrix.platform.ext }}" "out/$asset"
+                    (cd out && { sha256sum "$asset" 2>/dev/null || shasum -a 256 "$asset"; } > "$asset.sha256")
                   }
-                  pack client vermouth linux.sh windows.bat .env.example
-                  pack server vermouth-server example.config.json
-                  if [[ " ${{ matrix.platform.crates }} " == *" nanokvm "* ]]; then pack nanokvm vermouth-nanokvm .env.example; fi
+                  pack client vermouth
+                  pack server vermouth-server
+                  if [[ " ${{ matrix.platform.crates }} " == *" nanokvm "* ]]; then pack nanokvm vermouth-nanokvm; fi
             - uses: actions/upload-artifact@v4
               with:
                   name: vermouth-${{ matrix.platform.os-name }}
@@ -138,6 +128,7 @@ jobs:
         permissions:
             contents: write
         steps:
+            - uses: actions/checkout@v4
             - uses: actions/download-artifact@v4
               with:
                   path: dist
@@ -158,6 +149,20 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: gh release delete latest --repo "${{ github.repository }}" --yes || true
+            # Next to the executables, once: the license and the files this repository has of Changes.md and config templates (a file name that starts with a dot cannot be a
+            # release asset, so .env is example.env).
+            - name: Add the files that are the same on every platform
+              run: |
+                  cp "LICENSE" "dist/LICENSE"
+                  cp "Changes.md" "dist/Changes.md"
+                  cp "client/Changes.md" "dist/client.Changes.md"
+                  cp "server/Changes.md" "dist/server.Changes.md"
+                  cp "nanokvm/Changes.md" "dist/nanokvm.Changes.md"
+                  cp "client/.env.example" "dist/client.example.env"
+                  cp "nanokvm/.env.example" "dist/nanokvm.example.env"
+                  cp "server/example.config.json" "dist/server.example.config.json"
+                  cp "client/linux.sh" "dist/client.linux.sh"
+                  cp "client/windows.bat" "dist/client.windows.bat"
             - name: Make the release
               if: github.event_name != 'pull_request'
               uses: softprops/action-gh-release@v2
