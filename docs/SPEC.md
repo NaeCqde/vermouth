@@ -74,7 +74,7 @@ HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_B
 - サーバーとの通信は HTTP の上で Noise IK のハンドシェイクを行い、端末ごとの token とサーバーの公開鍵のピン留めで相互に認証し、暗号化している(上の「通信の暗号化」)。経路(ルーター)が乗っ取られても、パスワードは読めず、サーバーにもなりすませない。
 - **このバージョンで通信の形式が変わった。** 古いクライアント・古い `vermouth-nanokvm` は新しいサーバーと話せない(サーバーは 404)。全部を同じバージョンにすること。`nanokvm/directory/data/vermouth/vermouth-nanokvm` は古い形式のままなので、リリースの `vermouth-nanokvm-Linux-riscv64` で置き換える。
 - 端末の識別は鍵(token から作る)と接続元 IP の両方。IP だけでは通らず、鍵だけでも別の IP からは通らない。
-- トークンは固定の共有の秘密。署名の比較は定数時間。
+- token は端末ごとに固有で、サーバーには保存されない(公開鍵だけ)。サーバーの秘密鍵は config.json に入る。
 - パスワードは環境変数でスクリプトに渡る。Windows 版は VeraCrypt の引数(`/p`)に載るため、プロセス一覧から見える。Linux 版も `echo $PASSWORD` で扱う(変数の引用がない)。
 - `config.json` と `.env` には秘密が入る。リポジトリに入れない(`.gitignore` で除外する)。
 - NanoKVM の `NANOKVM_USERNAME` / `NANOKVM_PASSWORD` は `.env` にあるが、コードでは使っていない(`/api/hid/*` へ認証なしで送っている)。
