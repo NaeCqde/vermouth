@@ -85,6 +85,9 @@ pub struct ClientHandshake {
 impl ClientHandshake {
     /// Returns the handshake and the first message (the body of the request).
     pub fn start(token: &str, server_public_b64: &str) -> Result<(ClientHandshake, Vec<u8>), Box<dyn Error>> {
+        if token.trim().len() < MIN_TOKEN_LEN {
+            return Err(format!("TOKEN must be at least {MIN_TOKEN_LEN} characters (make one with: vermouth-server token)").into());
+        }
         let secret = device_secret(token);
         let server_public = key_from_b64(server_public_b64)?;
         let mut hs = snow::Builder::new(params())
@@ -161,6 +164,12 @@ mod tests {
         let ans = a.answer(b"{\"password\":\"secret\"}").unwrap();
         assert!(!String::from_utf8_lossy(&ans).contains("secret"));
         assert_eq!(c.finish(&ans).unwrap(), b"{\"password\":\"secret\"}");
+    }
+
+    #[test]
+    fn short_token_is_refused() {
+        assert!(ClientHandshake::start("", &server().1).is_err());
+        assert!(ClientHandshake::start("short", &server().1).is_err());
     }
 
     #[test]
