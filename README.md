@@ -6,7 +6,9 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 
 ## サーバー
 
-パスワードを配る HTTP サーバー(`vermouth-server`)です。`vermouth-server <ホスト> <ポート>` で起動します。設定の雛形は `server.example.config.json` です。
+パスワードを配る HTTP サーバー(`vermouth-server`)です。`vermouth-server <ホスト> <ポート>` で起動します。設定の雛形は `server.example.config.json` です。待ち受けるアドレスは、引数 `<ホスト> <ポート>`、環境変数 `LISTEN=host:port`、`config.json` の `"listen"` のどれでも決められます。
+
+通信は、HTTP の上で Noise `IK` のハンドシェイクを行い、端末ごとの `TOKEN` とサーバーの公開鍵のピン留め(`SERVER_KEY`)で相互に認証して暗号化します(TLS ではなく、証明書は不要です)。サーバーの `config.json` には token ではなくその公開鍵(`key`)だけを保存します。ルーターが乗っ取られても、盗み見・改ざん・なりすまし・再送はできません。`vermouth-server token` で端末用の token と `key`、`vermouth-server server-key` でサーバーの鍵を作れます。クライアントとサーバーのバージョンは揃えてください(古いクライアントは新しいサーバーと話せません)。
 
 ## クライアント
 
