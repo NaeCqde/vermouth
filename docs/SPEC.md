@@ -54,7 +54,7 @@ HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_B
 `.env`(または環境変数): `SERVER`(サーバーの URL)、`TOKEN`(この端末の token)、`SERVER_KEY`(サーバーの公開鍵)。
 1. `POST $SERVER` にハンドシェイクの第 1 メッセージを送り、第 2 メッセージを開いて `{source, mount, password}` を得る。200 以外、または開けなければエラーで終了(終了コード 1)。
 2. 環境変数 `SOURCE`、`MOUNT`、`PASSWORD` を渡して、スクリプトを実行し、終わりを待つ。
-   - Linux/macOS: `sh run.sh`(`linux.sh` の中身は `echo $PASSWORD | veracrypt -t $SOURCE $MOUNT`)
+   - Linux/macOS: `sh run.sh`(`linux.sh` の中身は `printf '%s\n' "$PASSWORD" | veracrypt -t "$SOURCE" "$MOUNT"`)
    - Windows: `cmd /c run.bat`(`windows.bat` は `VeraCrypt.exe /q /v "%SOURCE%" /l %MOUNT% /p "%PASSWORD%"`)
 
 ## NanoKVM(`nanokvm/`)
@@ -75,6 +75,6 @@ HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_B
 - **このバージョンで通信の形式が変わった。** 古いクライアント・古い `vermouth-nanokvm` は新しいサーバーと話せない(サーバーは 404)。全部を同じバージョンにすること。`nanokvm/directory/data/vermouth/vermouth-nanokvm` は、この版のソースからCI(run 43119388807)で作った `vermouth-nanokvm-Linux-riscv64` に差し替え済み(SHA-256 `b3c454b56dec263d2a211479885d523140ee850325fc7a57c276ab48fb0fac75`)。ソースを変えたらリリースの同名ファイルで置き換え直すこと。
 - 端末の識別は鍵(token から作る)と接続元 IP の両方。IP だけでは通らず、鍵だけでも別の IP からは通らない。
 - token は端末ごとに固有で、サーバーには保存されない(公開鍵だけ)。サーバーの秘密鍵は config.json に入る。
-- パスワードは環境変数でスクリプトに渡る。Windows 版は VeraCrypt の引数(`/p`)に載るため、プロセス一覧から見える。Linux 版も `echo $PASSWORD` で扱う(変数の引用がない)。
+- パスワードは環境変数でスクリプトに渡る。Windows 版は VeraCrypt の引数(`/p`)に載るため、プロセス一覧から見える。Linux 版は変数を引用符で囲み `printf` で渡すので、空白や `*`、`-n` などを含むパスワードやパスでも分割・展開されない。
 - `config.json` と `.env` には秘密が入る。リポジトリに入れない(`.gitignore` で除外する)。
 - NanoKVM の `NANOKVM_USERNAME` / `NANOKVM_PASSWORD` は `.env` にあるが、コードでは使っていない(`/api/hid/*` へ認証なしで送っている)。

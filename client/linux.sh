@@ -1,1 +1,1 @@
-echo $PASSWORD | veracrypt -t $SOURCE $MOUNT
+printf '%s\n' "$PASSWORD" | veracrypt -t "$SOURCE" "$MOUNT"
