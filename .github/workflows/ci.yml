@@ -51,8 +51,57 @@ env:
     RUST_BACKTRACE: 1
 
 jobs:
+    # A push to main is, as a rule, the merge of a pull request that has already been built. When the tree of the merged commit is
+    # the very tree that the pull request run built (every platform recorded it in TREE-<platform>), that run's files are used and
+    # nothing is built again; any other case (main moved on, a direct push, a build missing or expired) builds as usual.
+    reuse:
+        name: Reuse the pull request build
+        runs-on: ubuntu-24.04
+        permissions:
+            contents: read
+            actions: read
+            pull-requests: read
+        outputs:
+            reuse: ${{ steps.find.outputs.reuse }}
+        steps:
+            - uses: actions/checkout@v4
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              with:
+                  persist-credentials: false
+            - name: Find the build of the pull request
+              id: find
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  head=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].head.sha // empty')
+                  [ -n "$head" ] || { echo "no pull request: build"; exit 0; }
+                  run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --event pull_request --commit "$head" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+                  [ -n "$run" ] || { echo "no successful run of the pull request: build"; exit 0; }
+                  mkdir dl reuse
+                  gh run download "$run" --repo "$GITHUB_REPOSITORY" --pattern 'vermouth-*' --dir dl || { echo "download failed: build"; exit 0; }
+                  mine=$(git rev-parse 'HEAD^{tree}')
+                  n=0
+                  for f in dl/*/TREE-*; do
+                    [ -f "$f" ] && [ "$(cat "$f")" = "$mine" ] || { echo "the tree differs from the pull request build: build"; exit 0; }
+                    n=$((n + 1))
+                  done
+                  # one per platform of the matrix below
+                  [ "$n" -eq 5 ] || { echo "$n platforms only: build"; exit 0; }
+                  mv dl/*/* reuse/
+                  echo "reuse run $run (tree $mine)"
+                  echo "reuse=true" >> "$GITHUB_OUTPUT"
+            - uses: actions/upload-artifact@v4
+              if: steps.find.outputs.reuse == 'true'
+              with:
+                  name: vermouth-reused
+                  path: reuse/*
+                  if-no-files-found: error
+
     package:
         name: Build - ${{ matrix.platform.os-name }}
+        needs: reuse
+        if: ${{ !cancelled() && needs.reuse.outputs.reuse != 'true' }}
         strategy:
             fail-fast: false
             matrix:
@@ -123,6 +172,7 @@ jobs:
                     cp "$crate/target/${{ matrix.platform.target }}/release/$exe${{ matrix.platform.ext }}" "out/$asset"
                     (cd out && { sha256sum "$asset" 2>/dev/null || shasum -a 256 "$asset"; } > "$asset.sha256")
                   }
+                  git rev-parse 'HEAD^{tree}' > "out/TREE-${{ matrix.platform.os-name }}"
                   pack client vermouth
                   pack server vermouth-server
                   if [[ " ${{ matrix.platform.crates }} " == *" nanokvm "* ]]; then pack nanokvm vermouth-nanokvm; fi
@@ -136,7 +186,7 @@ jobs:
     # platform that failed is missing from it.
     release:
         name: Release
-        needs: package
+        needs: [reuse, package]
         if: ${{ !cancelled() }}
         runs-on: ubuntu-24.04
         permissions:
@@ -169,6 +219,7 @@ jobs:
             # release asset, so .env is example.env).
             - name: Add the files that are the same on every platform
               run: |
+                  rm -f dist/TREE-*
                   cp "LICENSE" "dist/LICENSE"
                   cp "Changes.md" "dist/Changes.md"
                   cp "client/Changes.md" "dist/client.Changes.md"
