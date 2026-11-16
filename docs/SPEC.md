@@ -76,5 +76,6 @@ HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_B
 - 端末の識別は鍵(token から作る)と接続元 IP の両方。IP だけでは通らず、鍵だけでも別の IP からは通らない。
 - token は端末ごとに固有で、サーバーには保存されない(公開鍵だけ)。サーバーの秘密鍵は config.json に入る。
 - パスワードは環境変数でスクリプトに渡る。Windows 版は VeraCrypt の引数(`/p`)に載るため、プロセス一覧から見える。Linux 版は変数を引用符で囲み `printf` で渡すので、空白や `*`、`-n` などを含むパスワードやパスでも分割・展開されない。
+- **メモリ上のパスワード。** クライアントと `vermouth-nanokvm` は、確保したヒープを解放するたびに 0 で上書きする(`shared/src/zero_alloc.rs` の `ZeroOnFree` を `#[global_allocator]` にしている)。復号した応答・JSON・HTTP ライブラリの内部バッファも対象で、パスワードを入力した後も動き続ける `vermouth-nanokvm` に古いコピーが残らない。`Container` は drop 時に `password` を明示的にも消す。対象外: スタック、レジスタ、スワップ、まだ生きているブロック、子プロセスの環境変数(OS が持つ)。`shared/tests/zero_on_free.rs`(Linux)が、解放後のコピーが残らないことを `/proc/self/mem` で確かめる。サーバーは設定にパスワードを持つのが役目なので対象外。
 - `config.json` と `.env` には秘密が入る。リポジトリに入れない(`.gitignore` で除外する)。
 - NanoKVM の `NANOKVM_USERNAME` / `NANOKVM_PASSWORD` は `.env` にあるが、コードでは使っていない(`/api/hid/*` へ認証なしで送っている)。
