@@ -1,7 +1,7 @@
 name: ci
 
 # Every push and pull request builds the three programs (client, server and, on RISC-V, nanokvm) for every platform and
-# archives them. The `latest` pre-release is updated by every push to a branch (its tag moves to the pushed commit); a version
+# archives them. The `latest` release is updated only by a push to the main branch (its tag moves to the pushed commit); other branches only build; a version
 # tag (`git tag v0.1.0 && git push --tags`), or a run started by hand with a tag name, makes the release of that tag. A pull
 # request does not publish anything. Changes to documentation, the license and editor settings alone do not start it.
 on:
@@ -152,7 +152,7 @@ jobs:
             - name: List the files
               run: ls -l dist
             - name: Move the latest tag
-              if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
@@ -161,7 +161,7 @@ jobs:
             # The rolling release is made again by every push (the tag was moved just above): its date is the date of the push, and only the
             # files of this run are in it.
             - name: Remove the old rolling release
-              if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')
+              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
               env:
                   GH_TOKEN: ${{ github.token }}
               run: gh release delete latest --repo "${{ github.repository }}" --yes || true
@@ -180,7 +180,7 @@ jobs:
                   cp "client/linux.sh" "dist/client.linux.sh"
                   cp "client/windows.bat" "dist/client.windows.bat"
             - name: Make the release
-              if: github.event_name != 'pull_request'
+              if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || 'latest' }}
