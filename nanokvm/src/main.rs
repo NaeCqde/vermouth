@@ -1,8 +1,20 @@
 mod config;
 
+// wipes every freed heap block, so no copy of the password stays in this long-running process
+#[global_allocator]
+static ALLOC: vermouth_common::ZeroOnFree = vermouth_common::ZeroOnFree;
+
 use reqwest::Client;
-use std::{collections::HashMap, error::Error, process::exit, time::Duration};
+use serde::Serialize;
+use std::{error::Error, process::exit, time::Duration};
 use tokio::{fs, time::sleep};
+use zeroize::Zeroizing;
+
+#[derive(Serialize)]
+struct Paste<'a> {
+    content: &'a str,
+    langue: &'a str,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -75,9 +87,9 @@ async fn input_password(config: &config::Config) -> Result<(), Box<dyn Error>> {
     log::info!("Pasting password...");
     let client = Client::default();
 
-    let mut payload = HashMap::new();
-    payload.insert("content", format!("{}\n", container.password));
-    payload.insert("langue", "en".to_string());
+    // `container` is wiped when it is dropped; `content` is wiped explicitly
+    let content = Zeroizing::new(format!("{}\n", container.password));
+    let payload = Paste { content: &content, langue: "en" };
     client
         .post(format!("{}/api/hid/paste", config.nanokvm.server))
         .json(&payload)

@@ -20,6 +20,9 @@ use sha2::Sha256;
 use std::error::Error;
 use x25519_dalek::{PublicKey, StaticSecret};
 
+mod zero_alloc;
+pub use zero_alloc::ZeroOnFree;
+
 #[cfg(feature = "client")]
 mod fetch;
 #[cfg(feature = "client")]

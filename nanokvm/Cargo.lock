@@ -1576,6 +1576,7 @@ dependencies = [
  "sha2",
  "snow",
  "x25519-dalek",
+ "zeroize",
 ]
 
 [[package]]
@@ -1589,6 +1590,7 @@ dependencies = [
  "serde",
  "tokio",
  "vermouth_common",
+ "zeroize",
 ]
 
 [[package]]

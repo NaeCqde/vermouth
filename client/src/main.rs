@@ -1,6 +1,9 @@
 mod config;
 
-use std::{collections::HashMap, error::Error, process::exit};
+#[global_allocator]
+static ALLOC: vermouth_common::ZeroOnFree = vermouth_common::ZeroOnFree;
+
+use std::{error::Error, process::exit};
 use tokio::process::Command;
 
 #[tokio::main]
@@ -9,28 +12,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     match config::load().await {
         Ok(config) => {
-            let mut map = HashMap::new();
-            map.insert("SOURCE", config.container.source);
-            map.insert("MOUNT", config.container.mount);
-            map.insert("PASSWORD", config.container.password);
-
-            if cfg!(windows) {
-                let _ = Command::new("cmd")
-                    .args(&["/c", "run.bat"])
-                    .envs(&map)
-                    .spawn()
-                    .expect("run failure")
-                    .wait()
-                    .await;
+            let c = &config.container;
+            let mut cmd = if cfg!(windows) {
+                let mut cmd = Command::new("cmd");
+                cmd.args(["/c", "run.bat"]);
+                cmd
             } else {
-                let _ = Command::new("sh")
-                    .arg("run.sh")
-                    .envs(&map)
-                    .spawn()
-                    .expect("run failure")
-                    .wait()
-                    .await;
-            }
+                let mut cmd = Command::new("sh");
+                cmd.arg("run.sh");
+                cmd
+            };
+            cmd.env("SOURCE", &c.source).env("MOUNT", &c.mount).env("PASSWORD", &c.password);
+            let _ = cmd.spawn().expect("run failure").wait().await;
+            // `cmd` (with its copy of the password) and `config` (wiped on drop) go out of scope here
+            drop(cmd);
 
             return Ok(());
         }
