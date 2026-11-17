@@ -78,6 +78,8 @@ jobs:
                   [ -n "$head" ] || { echo "no pull request: build"; exit 0; }
                   run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --event pull_request --commit "$head" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
                   [ -n "$run" ] || { echo "no successful run of the pull request: build"; exit 0; }
+                  # only a run of a branch of this repository: the files of a fork's run are built by code that nobody here has trusted
+                  [ "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" --jq '.head_repository.full_name')" = "$GITHUB_REPOSITORY" ] || { echo "the pull request run is from a fork: build"; exit 0; }
                   mkdir dl reuse
                   gh run download "$run" --repo "$GITHUB_REPOSITORY" --pattern 'vermouth-*' --dir dl || { echo "download failed: build"; exit 0; }
                   mine=$(git rev-parse 'HEAD^{tree}')
