@@ -1,1 +1,1 @@
-None is None
+# 変更履歴
