@@ -21,7 +21,7 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 
 どれもなければエラーで終了する。引数の数が 0 でも 2 でもなければ使い方を出して終了する。ワーカーは 1。
 
-設定 `config.json`(作業ディレクトリ。なければ起動時にエラーで終了):
+設定 `config.json`(カレントディレクトリ、なければ実行ファイルのディレクトリ。どちらにもなければ起動時にエラーで終了):
 
 ```json
 { "server_key": "…", "listen": "0.0.0.0:9810", "devices": { "<端末の名前>": { "key": "…", "ip": "…", "source": "…", "mount": "…", "password": "…" } } }
@@ -51,7 +51,7 @@ HTTP の上で Noise の `IK` ハンドシェイク(`Noise_IK_25519_ChaChaPoly_B
 
 ## クライアント(`client/`)
 
-`.env`(または環境変数): `SERVER`(サーバーの URL)、`TOKEN`(この端末の token)、`SERVER_KEY`(サーバーの公開鍵)。
+`.env`(カレントディレクトリ、なければ実行ファイルのディレクトリ。または環境変数): `SERVER`(サーバーの URL)、`TOKEN`(この端末の token)、`SERVER_KEY`(サーバーの公開鍵)。
 1. `POST $SERVER` にハンドシェイクの第 1 メッセージを送り、第 2 メッセージを開いて `{source, mount, password}` を得る。200 以外、または開けなければエラーで終了(終了コード 1)。
 2. 環境変数 `SOURCE`、`MOUNT`、`PASSWORD` を渡して、スクリプトを実行し、終わりを待つ。
    - Linux/macOS: `sh run.sh`(`linux.sh` の中身は `printf '%s\n' "$PASSWORD" | veracrypt -t "$SOURCE" "$MOUNT"`)
