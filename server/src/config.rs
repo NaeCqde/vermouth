@@ -33,7 +33,7 @@ pub struct Device {
 pub struct Config {
     /// The private key of the server (base64), made with `vermouth-server server-key`. Keep config.json private.
     pub server_key: String,
-    /// `host:port` to listen on when the program is started without arguments (the environment variable `LISTEN` wins).
+    /// `host:port` to listen on when the program is started without arguments.
     #[serde(default)]
     pub listen: Option<String>,
     /// The devices by name (any name, for the log).

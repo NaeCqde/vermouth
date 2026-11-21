@@ -14,10 +14,9 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 
 ## サーバー(`vermouth-server [HOST PORT]`)
 
-待ち受けるアドレスは、次の順で最初に見つかったものになる。
+待ち受けるアドレスは、次の順で最初に見つかったものになる。サーバーは環境変数を読まない。
 1. 引数 `<ホスト> <ポート>`(これまでどおり)
-2. 環境変数 `LISTEN`(`host:port`。IPv6 は `[::]:9810`)
-3. `config.json` の `"listen"`(`host:port`)
+2. `config.json` の `"listen"`(`host:port`。IPv6 は `[::]:9810`)
 
 どれもなければエラーで終了する。引数の数が 0 でも 2 でもなければ使い方を出して終了する。ワーカーは 1。
 
@@ -28,7 +27,7 @@ VeraCrypt で暗号化したコンテナのパスワードを、自宅のサー�
 ```
 
 - `server_key`: サーバーの秘密鍵(base64)。`vermouth-server server-key` で作る。config.json は他人に読ませない。
-- `listen`: 引数なしで起動したときに待ち受ける `host:port`(省略可。環境変数 `LISTEN` が優先)。
+- `listen`: 引数なしで起動したときに待ち受ける `host:port`(省略可)。
 - `devices`: 端末ごとの設定。`key` はその端末の**公開鍵**(base64。token から作った一方向の値で、token そのものは保存しない。`vermouth-server token` または `vermouth-server key` で作る)。`ip`(この端末が接続してくる元の IP アドレス。鍵と IP の**両方**が合わないと答えない)、`source`(コンテナのパス)、`mount`(マウント先)、`password`(パスワード)。
 
 補助コマンド(config.json は不要): `vermouth-server token`(端末用の新しい TOKEN と、config.json 用の `key` を出す)、`vermouth-server key`(標準入力の token から `key` を出す)、`vermouth-server server-key`(サーバーの鍵対を出す)。

@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Ok(a) => a,
         Err(e) => {
             log::error!("{}", e);
-            log::error!("vermouth-server [HOST PORT]   (without arguments: LISTEN=host:port, or \"listen\" in config.json)");
+            log::error!("vermouth-server [HOST PORT]   (without arguments: \"listen\" in config.json)");
             exit(1);
         }
     };
@@ -46,8 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?)
 }
 
-/// The address to listen on: the two arguments `HOST PORT` (as before), else the environment variable `LISTEN`
-/// (`host:port`), else `"listen"` in config.json.
+/// The address to listen on: the two arguments `HOST PORT` (as before), else `"listen"` in config.json (the server reads no environment variables).
 fn listen_address() -> Result<(String, u16), String> {
     let args: Vec<String> = env::args().collect();
     match args.len() {
@@ -56,12 +55,7 @@ fn listen_address() -> Result<(String, u16), String> {
             Ok((args[1].clone(), port))
         }
         1 => {
-            vermouth_common::settings::load_env();
-            let listen = env::var("LISTEN")
-                .ok()
-                .filter(|s| !s.is_empty())
-                .or_else(|| CONFIG.listen.clone())
-                .ok_or("no address to listen on")?;
+            let listen = CONFIG.listen.clone().filter(|s| !s.is_empty()).ok_or("no address to listen on")?;
             parse_listen(&listen)
         }
         _ => Err("wrong arguments".to_string()),
