@@ -14,6 +14,8 @@
 //!
 //! Use long random tokens: `vermouth-server token` makes one.
 
+pub mod settings;
+
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use hkdf::Hkdf;
 use sha2::Sha256;

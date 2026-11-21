@@ -10,6 +10,7 @@ client = ["dep:reqwest", "dep:serde", "dep:serde_json"]
 
 [dependencies]
 base64 = "0.22"
+dotenvy = "0.15"
 getrandom = "0.2"
 hkdf = "0.12"
 sha2 = "0.10"

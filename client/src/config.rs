@@ -6,9 +6,10 @@ pub struct Config {
 }
 
 pub async fn load() -> Result<Config, Box<dyn Error>> {
-    let server = dotenvy::var("SERVER")?;
-    let token = dotenvy::var("TOKEN")?;
-    let server_key = dotenvy::var("SERVER_KEY")?;
+    vermouth_common::settings::load_env();
+    let server = std::env::var("SERVER")?;
+    let token = std::env::var("TOKEN")?;
+    let server_key = std::env::var("SERVER_KEY")?;
 
     let container = fetch_container(&server, &token, &server_key).await?;
     Ok(Config { container })

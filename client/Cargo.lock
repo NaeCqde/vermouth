@@ -1641,7 +1641,6 @@ checksum = "3a3b425286980a367278453f3b6d28cdcb134b574e5a35824a6ff5eebad50bb6"
 name = "vermouth"
 version = "0.1.0"
 dependencies = [
- "dotenvy",
  "env_logger",
  "log",
  "reqwest",
@@ -1654,6 +1653,7 @@ name = "vermouth_common"
 version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
+ "dotenvy",
  "getrandom",
  "hkdf",
  "reqwest",
