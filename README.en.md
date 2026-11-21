@@ -28,4 +28,4 @@ The releases hold the executables for each platform (Linux x86_64 / aarch64 / ri
 
 ## Where the settings are read from
 
-`.env` と `config.json`: the current directory is searched first. If the file is there, only that one is read; if not, the one in the directory of the executable is read.
+`.env` (client and nanokvm) and `config.json` (server): the current directory is searched first. If the file is there, only that one is read; if not, the one in the directory of the executable is read.
