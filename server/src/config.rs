@@ -41,7 +41,7 @@ pub struct Config {
 }
 
 pub fn load() -> Result<Config, Box<dyn Error>> {
-    let file = File::open("config.json")?;
+    let file = File::open(vermouth_common::settings::find("config.json"))?;
     let reader = BufReader::new(file);
 
     let config: Config = serde_json::from_reader(reader)?;

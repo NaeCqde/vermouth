@@ -1568,6 +1568,7 @@ name = "vermouth_common"
 version = "0.2.0"
 dependencies = [
  "base64",
+ "dotenvy",
  "getrandom",
  "hkdf",
  "reqwest",
@@ -1583,7 +1584,6 @@ dependencies = [
 name = "vermouth_nanokvm"
 version = "0.1.0"
 dependencies = [
- "dotenvy",
  "env_logger",
  "log",
  "reqwest",

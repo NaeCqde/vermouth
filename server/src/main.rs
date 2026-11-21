@@ -56,6 +56,7 @@ fn listen_address() -> Result<(String, u16), String> {
             Ok((args[1].clone(), port))
         }
         1 => {
+            vermouth_common::settings::load_env();
             let listen = env::var("LISTEN")
                 .ok()
                 .filter(|s| !s.is_empty())
