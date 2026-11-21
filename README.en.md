@@ -25,3 +25,7 @@ The set of files to put on the NanoKVM is in `nanokvm/directory/` (the executabl
 ## Download
 
 The releases hold the executables for each platform (Linux x86_64 / aarch64 / riscv64, Windows x86_64, macOS aarch64).
+
+## Where the settings are read from
+
+`.env` と `config.json`: the current directory is searched first. If the file is there, only that one is read; if not, the one in the directory of the executable is read.
